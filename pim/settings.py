@@ -45,9 +45,27 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
 
+    # third-party
+    'adminsortable2',   # drag-and-drop сортировка в админке
+    'tinymce',          # визуальный HTML-редактор
+
     # local apps
     'catalog',
 ]
+
+# Конфигурация визуального редактора (self-hosted, без облачного API-ключа)
+TINYMCE_DEFAULT_CONFIG = {
+    "height": 400,
+    "menubar": "edit view insert format tools table",
+    "plugins": "advlist autolink lists link image charmap preview anchor "
+               "searchreplace visualblocks code fullscreen insertdatetime "
+               "media table help wordcount",
+    "toolbar": "undo redo | blocks | bold italic underline | "
+               "alignleft aligncenter alignright | bullist numlist | "
+               "link image table | code fullscreen | removeformat",
+    "promotion": False,
+    "branding": False,
+}
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',

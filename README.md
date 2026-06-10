@@ -7,7 +7,7 @@ PDF-документы. Управление через админку, отда
 ## Статус
 
 - [x] Этап 1 — модель данных и каркас проекта
-- [ ] Этап 2 — админка (CRUD по всем сущностям)
+- [x] Этап 2 — админка (CRUD по всем сущностям)
 - [ ] Этап 3 — динамическая форма категорийных характеристик
 - [ ] Этап 4 — JSON-API каталога
 - [ ] Этап 5 — деплой на VPS
@@ -15,7 +15,7 @@ PDF-документы. Управление через админку, отда
 ## Быстрый старт (локально)
 
 См. [SETUP.md](SETUP.md). Коротко: venv → `pip install -r requirements.txt`
-→ `migrate` → `createsuperuser` → `runserver`.
+→ `migrate` → `createsuperuser` → `runserver` → http://127.0.0.1:8000/admin/
 
 ## Рабочий процесс
 
@@ -28,5 +28,6 @@ PDF-документы. Управление через админку, отда
 
 ## Стек
 
-Python 3.12+, Django 6, Pillow. На продакшене дополнительно: PostgreSQL,
-gunicorn, nginx, HTTPS (Let's Encrypt).
+Python 3.12+, Django 5.2 LTS, Pillow, django-tinymce (визуальный редактор),
+django-admin-sortable2 (drag-and-drop). На продакшене дополнительно:
+PostgreSQL, gunicorn, nginx, HTTPS (Let's Encrypt).
