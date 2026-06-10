@@ -1,10 +1,30 @@
 from django.conf import settings
 from django.conf.urls.static import static
 from django.contrib import admin
-from django.urls import path
+from django.urls import include, path
+from django.views.generic import RedirectView
+from rest_framework.routers import DefaultRouter
+
+from catalog.api import (
+    BrandViewSet,
+    CategoryViewSet,
+    CharacteristicViewSet,
+    DocumentViewSet,
+    ProductViewSet,
+)
+
+router = DefaultRouter()
+router.register("products", ProductViewSet, basename="product")
+router.register("categories", CategoryViewSet, basename="category")
+router.register("brands", BrandViewSet, basename="brand")
+router.register("characteristics", CharacteristicViewSet, basename="characteristic")
+router.register("documents", DocumentViewSet, basename="document")
 
 urlpatterns = [
     path("admin/", admin.site.urls),
+    path("api/", include(router.urls)),
+    path("api-auth/", include("rest_framework.urls")),  # вход/выход в браузерном API
+    path("", RedirectView.as_view(url="/api/", permanent=False)),
 ]
 
 # Отдача загруженных медиафайлов в режиме разработки.

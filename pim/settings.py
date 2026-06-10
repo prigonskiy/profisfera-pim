@@ -46,6 +46,8 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
 
     # third-party
+    'rest_framework',            # REST API
+    'rest_framework.authtoken',  # токены для записи
     'adminsortable2',   # drag-and-drop сортировка в админке
     'tinymce',          # визуальный HTML-редактор
 
@@ -65,6 +67,19 @@ TINYMCE_DEFAULT_CONFIG = {
                "link image table | code fullscreen | removeformat",
     "promotion": False,
     "branding": False,
+}
+
+# Django REST Framework: публичное чтение, запись по токену для staff
+REST_FRAMEWORK = {
+    "DEFAULT_AUTHENTICATION_CLASSES": [
+        "rest_framework.authentication.TokenAuthentication",
+        "rest_framework.authentication.SessionAuthentication",
+    ],
+    "DEFAULT_PERMISSION_CLASSES": [
+        "catalog.permissions.IsStaffOrReadOnly",
+    ],
+    "DEFAULT_PAGINATION_CLASS": "rest_framework.pagination.PageNumberPagination",
+    "PAGE_SIZE": 20,
 }
 
 MIDDLEWARE = [
