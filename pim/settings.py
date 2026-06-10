@@ -13,8 +13,15 @@ https://docs.djangoproject.com/en/6.0/ref/settings/
 import os
 from pathlib import Path
 
+from dotenv import load_dotenv
+
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
+
+# Загружаем переменные окружения из .env (если файл есть). На проде .env лежит
+# рядом с проектом; локально файла может не быть — тогда работают значения по
+# умолчанию ниже.
+load_dotenv(BASE_DIR / ".env")
 
 
 # Quick-start development settings - unsuitable for production
@@ -33,6 +40,18 @@ DEBUG = os.getenv("DEBUG", "1") == "1"
 
 # Список доменов через запятую, напр. "example.com,www.example.com".
 ALLOWED_HOSTS = [h for h in os.getenv("ALLOWED_HOSTS", "*").split(",") if h]
+
+# Доверенные источники для CSRF (нужно для админки не на localhost).
+# Со схемой, через запятую: "http://1.2.3.4" или "https://example.com".
+CSRF_TRUSTED_ORIGINS = [o for o in os.getenv("CSRF_TRUSTED_ORIGINS", "").split(",") if o]
+
+# Куки только по HTTPS — включить (COOKIE_SECURE=1), когда появится домен с TLS.
+SESSION_COOKIE_SECURE = os.getenv("COOKIE_SECURE", "0") == "1"
+CSRF_COOKIE_SECURE = os.getenv("COOKIE_SECURE", "0") == "1"
+
+# Если приложение за HTTPS-прокси (nginx + Let's Encrypt) — BEHIND_TLS_PROXY=1.
+if os.getenv("BEHIND_TLS_PROXY") == "1":
+    SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 
 
 # Application definition

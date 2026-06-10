@@ -1,19 +1,28 @@
 # PIM — настройка и запуск
 
-Django-проект PIM. Готовы этапы 1–4: модель данных, админка, динамические
-категорийные характеристики с транслитерацией и JSON-API каталога. Дальше — деплой.
+Django-проект PIM. Готовы все 5 этапов: модель данных, админка, динамические
+категорийные характеристики с транслитерацией, JSON-API каталога и деплой на VPS.
 
 ## Что внутри
 
 ```
 pim/
 ├── manage.py
-├── requirements.txt        # Django 5.2 LTS, Pillow, tinymce, sortable2, slugify, DRF
+├── requirements.txt        # базовые: Django 5.2 LTS, Pillow, tinymce, sortable2, slugify, DRF, dotenv
+├── requirements-prod.txt   # прод: + gunicorn, psycopg2-binary
 ├── .env.example            # пример переменных окружения
 ├── .gitignore
 ├── README.md
+├── SETUP.md                # этот файл (локальная разработка)
+├── DEPLOY.md               # развёртывание на VPS и автодеплой
+├── deploy/
+│   ├── pim.service         # systemd-сервис gunicorn
+│   └── nginx-pim.conf      # конфиг nginx
+├── deploy.sh               # скрипт деплоя (pull, миграции, статика, рестарт)
+├── .github/workflows/
+│   └── deploy.yml          # автодеплой через GitHub Actions
 ├── pim/                    # настройки проекта
-│   ├── settings.py         # БД, медиа, локаль, редактор, DRF — настроено
+│   ├── settings.py         # БД, медиа, локаль, редактор, DRF, прод-безопасность
 │   └── urls.py             # /admin/, /api/, отдача медиа в DEBUG
 └── catalog/                # основное приложение
     ├── models.py           # ВСЯ модель данных
@@ -27,6 +36,8 @@ pim/
         ├── 0002_*.py
         └── 0003_product_external_id.py
 ```
+
+Развёртывание на сервере — отдельный документ: **[DEPLOY.md](DEPLOY.md)**.
 
 ## Локальный запуск
 
