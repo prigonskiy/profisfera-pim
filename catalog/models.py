@@ -1,11 +1,15 @@
 from django.core.validators import FileExtensionValidator
 from django.db import models
 
+from .utils import unique_slugify
+
+SLUG_HELP = "Оставьте пустым — сгенерируется автоматически из названия (транслитерацией)."
+
 
 class Brand(models.Model):
     """Бренд (производитель)."""
     name = models.CharField("Название", max_length=255)
-    slug = models.SlugField("Slug", unique=True, max_length=255)
+    slug = models.SlugField("Slug", unique=True, max_length=255, blank=True, help_text=SLUG_HELP)
     logo = models.ImageField("Логотип", upload_to="brands/", blank=True, null=True)
     description = models.TextField("Описание", blank=True)
 
@@ -17,11 +21,16 @@ class Brand(models.Model):
     def __str__(self):
         return self.name
 
+    def save(self, *args, **kwargs):
+        if not self.slug:
+            self.slug = unique_slugify(self, self.name)
+        super().save(*args, **kwargs)
+
 
 class Category(models.Model):
     """Категория каталога. Вложенность через ссылку на саму себя (parent)."""
     name = models.CharField("Название", max_length=255)
-    slug = models.SlugField("Slug", unique=True, max_length=255)
+    slug = models.SlugField("Slug", unique=True, max_length=255, blank=True, help_text=SLUG_HELP)
     parent = models.ForeignKey(
         "self",
         verbose_name="Родительская категория",
@@ -41,6 +50,11 @@ class Category(models.Model):
             return f"{self.parent} → {self.name}"
         return self.name
 
+    def save(self, *args, **kwargs):
+        if not self.slug:
+            self.slug = unique_slugify(self, self.name)
+        super().save(*args, **kwargs)
+
 
 class Characteristic(models.Model):
     """Характеристика. Привязывается к категориям, имеет один из пяти типов."""
@@ -57,7 +71,8 @@ class Characteristic(models.Model):
         "Код",
         unique=True,
         max_length=128,
-        help_text="Машинный код для API, напр. 'color' или 'power_w'.",
+        blank=True,
+        help_text="Машинный код для API. Оставьте пустым — сгенерируется из названия.",
     )
     type = models.CharField("Тип", max_length=20, choices=Type.choices)
     unit = models.CharField(
@@ -85,6 +100,11 @@ class Characteristic(models.Model):
     @property
     def is_select(self):
         return self.type in (self.Type.SINGLE_SELECT, self.Type.MULTI_SELECT)
+
+    def save(self, *args, **kwargs):
+        if not self.code:
+            self.code = unique_slugify(self, self.name, "code")
+        super().save(*args, **kwargs)
 
 
 class CharacteristicOption(models.Model):
@@ -129,7 +149,7 @@ class Document(models.Model):
 class Product(models.Model):
     """Карточка товара."""
     name = models.CharField("Название", max_length=255)
-    slug = models.SlugField("Slug", unique=True, max_length=255)
+    slug = models.SlugField("Slug", unique=True, max_length=255, blank=True, help_text=SLUG_HELP)
 
     # Постоянные характеристики: описания
     short_description = models.TextField("Краткое описание", blank=True)
@@ -188,6 +208,11 @@ class Product(models.Model):
 
     def __str__(self):
         return self.name
+
+    def save(self, *args, **kwargs):
+        if not self.slug:
+            self.slug = unique_slugify(self, self.name)
+        super().save(*args, **kwargs)
 
 
 class ProductImage(models.Model):
