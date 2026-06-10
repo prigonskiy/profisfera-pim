@@ -1,5 +1,8 @@
+from django.utils import timezone
+from django.utils.dateparse import parse_datetime
 from rest_framework import filters, viewsets
 from rest_framework.decorators import action
+from rest_framework.exceptions import NotFound, ParseError
 from rest_framework.response import Response
 
 from .models import Brand, Category, Characteristic, Document, Product
@@ -93,7 +96,42 @@ class ProductViewSet(viewsets.ModelViewSet):
         brand = self.request.query_params.get("brand")
         if brand:
             qs = qs.filter(brand_id=brand)
+
+        # сопоставление с внешними системами (Litics): по коду из 1С
+        external_id = self.request.query_params.get("external_id")
+        if external_id:
+            qs = qs.filter(external_id=external_id)
+        external_ids = self.request.query_params.get("external_id__in")
+        if external_ids:
+            codes = [c.strip() for c in external_ids.split(",") if c.strip()]
+            qs = qs.filter(external_id__in=codes)
+
+        # инкрементальная синхронизация: только изменённые после указанного момента
+        updated_since = self.request.query_params.get("updated_since")
+        if updated_since:
+            dt = parse_datetime(updated_since)
+            if dt is None:
+                raise ParseError(
+                    "updated_since должен быть датой-временем ISO 8601, "
+                    "напр. 2026-06-10T12:00:00Z (не забудьте URL-кодировать)."
+                )
+            if timezone.is_naive(dt):
+                dt = timezone.make_aware(dt)
+            qs = qs.filter(updated_at__gte=dt)
         return qs
+
+    @action(
+        detail=False,
+        methods=["get"],
+        url_path=r"by-external-id/(?P<code>[^/]+)",
+    )
+    def by_external_id(self, request, code=None):
+        """Отдать полную карточку товара по коду сопоставления из 1С."""
+        product = self.get_queryset().filter(external_id=code).first()
+        if product is None:
+            raise NotFound("Товар с таким кодом сопоставления не найден.")
+        serializer = ProductDetailSerializer(product, context={"request": request})
+        return Response(serializer.data)
 
     def get_serializer_class(self):
         if self.action == "list":

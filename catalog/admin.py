@@ -143,15 +143,15 @@ class ProductImageInline(SortableInlineAdminMixin, admin.TabularInline):
 @admin.register(Product)
 class ProductAdmin(SortableAdminBase, admin.ModelAdmin):
     form = ProductAdminForm
-    list_display = ("name", "category", "brand", "manufacturer_sku", "updated_at")
+    list_display = ("name", "category", "brand", "manufacturer_sku", "external_id", "updated_at")
     list_filter = ("category", "brand")
-    search_fields = ("name", "manufacturer_sku")
+    search_fields = ("name", "manufacturer_sku", "external_id")
     autocomplete_fields = ("category", "brand")
     filter_horizontal = ("documents",)
     inlines = [ProductImageInline]
     base_fieldsets = (
         ("Основное", {
-            "fields": ("name", "slug", "brand", "category", "manufacturer_sku"),
+            "fields": ("name", "slug", "external_id", "brand", "category", "manufacturer_sku"),
         }),
         ("Описания", {
             "fields": ("short_description", "full_description"),

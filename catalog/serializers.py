@@ -75,7 +75,7 @@ class ProductListSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Product
-        fields = ("id", "name", "slug", "short_description", "brand", "category", "thumbnail")
+        fields = ("id", "external_id", "name", "slug", "short_description", "brand", "category", "thumbnail")
 
     def get_thumbnail(self, obj):
         first = obj.images.all().first()
@@ -98,7 +98,7 @@ class ProductDetailSerializer(serializers.ModelSerializer):
     class Meta:
         model = Product
         fields = (
-            "id", "name", "slug", "short_description", "full_description",
+            "id", "external_id", "name", "slug", "short_description", "full_description",
             "manufacturer_sku", "brand", "category", "logistics",
             "images", "characteristics", "documents",
         )
@@ -138,7 +138,7 @@ class ProductWriteSerializer(serializers.ModelSerializer):
     class Meta:
         model = Product
         fields = (
-            "id", "name", "slug", "short_description", "full_description",
+            "id", "external_id", "name", "slug", "short_description", "full_description",
             "manufacturer_sku", "category", "brand",
             "gross_width_mm", "gross_height_mm", "gross_depth_mm", "gross_weight_kg",
             "documents",

@@ -175,6 +175,15 @@ class Product(models.Model):
         null=True,
     )
     manufacturer_sku = models.CharField("Артикул производителя", max_length=128, blank=True)
+    external_id = models.CharField(
+        "Глобальный идентификатор (код сопоставления)",
+        max_length=255,
+        unique=True,
+        null=True,
+        blank=True,
+        help_text="Код из 1С, по которому товар сопоставляется во внешних системах "
+                  "(Litics). Уникальный; оставьте пустым, если ещё не присвоен.",
+    )
 
     # Постоянные характеристики: логистический блок (брутто)
     gross_width_mm = models.DecimalField(
@@ -210,6 +219,8 @@ class Product(models.Model):
         return self.name
 
     def save(self, *args, **kwargs):
+        # пустой external_id храним как NULL: иначе несколько "" нарушат unique
+        self.external_id = (self.external_id or "").strip() or None
         if not self.slug:
             self.slug = unique_slugify(self, self.name)
         super().save(*args, **kwargs)
