@@ -246,6 +246,13 @@ class ProductImage(models.Model):
     def __str__(self):
         return f"Изображение #{self.pk} ({self.product})"
 
+    def save(self, *args, **kwargs):
+        # галерейный виджет не редактирует alt — подставляем название товара,
+        # чтобы у изображения был осмысленный alt-текст для SEO/доступности
+        if not self.alt and self.product_id:
+            self.alt = self.product.name
+        super().save(*args, **kwargs)
+
 
 class ProductAttributeValue(models.Model):
     """

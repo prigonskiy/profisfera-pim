@@ -69,6 +69,7 @@ INSTALLED_APPS = [
     'rest_framework.authtoken',  # токены для записи
     'adminsortable2',   # drag-and-drop сортировка в админке
     'tinymce',          # визуальный HTML-редактор
+    'image_uploader_widget',  # пакетная загрузка/превью/сортировка изображений
 
     # local apps
     'catalog',

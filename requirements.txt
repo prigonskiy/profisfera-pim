@@ -1,5 +1,6 @@
 Django==5.2.15
 django-admin-sortable2==2.3.1
+django-image-uploader-widget==1.1.1
 django-tinymce==5.0.0
 djangorestframework==3.17.1
 pillow==12.2.0

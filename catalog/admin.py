@@ -1,6 +1,7 @@
 from adminsortable2.admin import SortableAdminBase, SortableInlineAdminMixin
 from django import forms
 from django.contrib import admin
+from image_uploader_widget.admin import OrderedImageUploaderInline
 from tinymce.widgets import TinyMCE
 
 from .models import (
@@ -134,14 +135,13 @@ class ProductAdminForm(forms.ModelForm):
                 self.initial[name] = list(av.value_options.values_list("pk", flat=True))
 
 
-class ProductImageInline(SortableInlineAdminMixin, admin.TabularInline):
+class ProductImageInline(OrderedImageUploaderInline):
     model = ProductImage
-    extra = 1
-    fields = ("image", "alt", "order")
+    order_field = "order"
 
 
 @admin.register(Product)
-class ProductAdmin(SortableAdminBase, admin.ModelAdmin):
+class ProductAdmin(admin.ModelAdmin):
     form = ProductAdminForm
     list_display = ("name", "category", "brand", "manufacturer_sku", "external_id", "updated_at")
     list_filter = ("category", "brand")
