@@ -94,13 +94,14 @@ class ProductDetailSerializer(serializers.ModelSerializer):
     documents = DocumentSerializer(many=True, read_only=True)
     logistics = serializers.SerializerMethodField()
     characteristics = serializers.SerializerMethodField()
+    group = serializers.SerializerMethodField()
 
     class Meta:
         model = Product
         fields = (
             "id", "external_id", "name", "slug", "short_description", "full_description",
             "manufacturer_sku", "brand", "category", "logistics",
-            "images", "characteristics", "documents",
+            "images", "characteristics", "documents", "group",
         )
 
     def get_logistics(self, obj):
@@ -128,6 +129,42 @@ class ProductDetailSerializer(serializers.ModelSerializer):
             })
         return items
 
+    def get_group(self, obj):
+        """Серия товара и список её вариантов для переключателя на карточке."""
+        grp = obj.group
+        if grp is None:
+            return None
+        request = self.context.get("request")
+
+        levels = list(grp.levels.all())  # упорядочены полем order
+        siblings = grp.products.prefetch_related(
+            "images", "group_values__level", "group_values__value"
+        ).order_by("group_order", "name")
+
+        variants = []
+        for p in siblings:
+            level_values = {gv.level.name: gv.value.value for gv in p.group_values.all()}
+            first = p.images.all().first()
+            thumbnail = None
+            if first:
+                url = first.image.url
+                thumbnail = request.build_absolute_uri(url) if request else url
+            variants.append({
+                "slug": p.slug,
+                "label": p.variant_label or p.name,
+                "thumbnail": thumbnail,
+                "is_current": p.pk == obj.pk,
+                "levels": level_values,
+            })
+
+        return {
+            "name": grp.name,
+            "slug": grp.slug,
+            "current": obj.slug,
+            "levels": [{"name": lvl.name, "order": lvl.order} for lvl in levels],
+            "variants": variants,
+        }
+
 
 class ProductWriteSerializer(serializers.ModelSerializer):
     """
@@ -142,5 +179,6 @@ class ProductWriteSerializer(serializers.ModelSerializer):
             "manufacturer_sku", "category", "brand",
             "gross_width_mm", "gross_height_mm", "gross_depth_mm", "gross_weight_kg",
             "documents",
+            "group", "group_order", "variant_label",
         )
         extra_kwargs = {"slug": {"required": False}}

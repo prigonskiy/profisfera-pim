@@ -77,12 +77,13 @@ class ProductViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         qs = (
-            Product.objects.select_related("brand", "category")
+            Product.objects.select_related("brand", "category", "group")
             .prefetch_related(
                 "images",
                 "documents",
                 "attribute_values__characteristic",
                 "attribute_values__value_options",
+                "group__levels",
             )
             .all()
         )

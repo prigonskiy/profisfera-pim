@@ -10,7 +10,11 @@ from .models import (
     Characteristic,
     CharacteristicOption,
     Document,
+    GroupLevel,
+    GroupLevelValue,
     Product,
+    ProductGroup,
+    ProductGroupValue,
     ProductImage,
     ProductAttributeValue,
 )
@@ -60,6 +64,37 @@ class CharacteristicAdmin(SortableAdminBase, admin.ModelAdmin):
 class DocumentAdmin(admin.ModelAdmin):
     list_display = ("name", "number", "file")
     search_fields = ("name", "number")
+
+
+# ---------------------------------------------------------------------------
+# Группировка вариантов (серии, уровни, значения уровней)
+# ---------------------------------------------------------------------------
+class GroupLevelValueInline(SortableInlineAdminMixin, admin.TabularInline):
+    model = GroupLevelValue
+    extra = 1
+    fields = ("value", "order")
+
+
+@admin.register(GroupLevel)
+class GroupLevelAdmin(SortableAdminBase, admin.ModelAdmin):
+    list_display = ("name", "group", "order")
+    list_filter = ("group",)
+    search_fields = ("name",)
+    inlines = [GroupLevelValueInline]
+
+
+class GroupLevelInline(SortableInlineAdminMixin, admin.TabularInline):
+    model = GroupLevel
+    extra = 1
+    fields = ("name", "order")
+    show_change_link = True  # перейти на уровень, чтобы добавить его значения
+
+
+@admin.register(ProductGroup)
+class ProductGroupAdmin(SortableAdminBase, admin.ModelAdmin):
+    list_display = ("name", "slug")
+    search_fields = ("name",)
+    inlines = [GroupLevelInline]
 
 
 # ---------------------------------------------------------------------------
@@ -140,15 +175,26 @@ class ProductImageInline(OrderedImageUploaderInline):
     order_field = "order"
 
 
+class ProductGroupValueInline(admin.TabularInline):
+    """Значения товара по уровням его серии (для переключателя вариантов)."""
+    model = ProductGroupValue
+    extra = 0
+    fields = ("level", "value")
+    verbose_name = "значение по уровню серии"
+    verbose_name_plural = (
+        "Значения по уровням серии (выбирайте уровень и значение одной и той же серии)"
+    )
+
+
 @admin.register(Product)
 class ProductAdmin(admin.ModelAdmin):
     form = ProductAdminForm
-    list_display = ("name", "category", "brand", "manufacturer_sku", "external_id", "updated_at")
-    list_filter = ("category", "brand")
+    list_display = ("name", "category", "brand", "group", "manufacturer_sku", "external_id", "updated_at")
+    list_filter = ("category", "brand", "group")
     search_fields = ("name", "manufacturer_sku", "external_id")
-    autocomplete_fields = ("category", "brand")
+    autocomplete_fields = ("category", "brand", "group")
     filter_horizontal = ("documents",)
-    inlines = [ProductImageInline]
+    inlines = [ProductImageInline, ProductGroupValueInline]
     base_fieldsets = (
         ("Основное", {
             "fields": ("name", "slug", "external_id", "brand", "category", "manufacturer_sku"),
@@ -166,6 +212,14 @@ class ProductAdmin(admin.ModelAdmin):
         }),
         ("Документы", {
             "fields": ("documents",),
+        }),
+        ("Группировка вариантов", {
+            "fields": ("group", "group_order", "variant_label"),
+            "description": (
+                "Серия объединяет карточки в переключатель. Значения по уровням "
+                "серии (напр. «Комплектность») задаются ниже, в блоке «Значения по "
+                "уровням серии»."
+            ),
         }),
     )
 

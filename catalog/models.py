@@ -146,6 +146,80 @@ class Document(models.Model):
         return self.name
 
 
+class ProductGroup(models.Model):
+    """
+    Серия товаров: объединяет отдельные карточки в одну группу, чтобы на
+    карточке показывать переключатель вариантов. Механизм самостоятельный и
+    НЕ связан с каталожными характеристиками (Characteristic): группировка
+    однозначная (товар лежит ровно в одном «ведре» каждого уровня).
+    """
+    name = models.CharField("Название", max_length=255)
+    slug = models.SlugField("Slug", unique=True, max_length=255, blank=True, help_text=SLUG_HELP)
+
+    class Meta:
+        verbose_name = "Группа (серия) вариантов"
+        verbose_name_plural = "Группы (серии) вариантов"
+        ordering = ["name"]
+
+    def __str__(self):
+        return self.name
+
+    def save(self, *args, **kwargs):
+        if not self.slug:
+            self.slug = unique_slugify(self, self.name)
+        super().save(*args, **kwargs)
+
+
+class GroupLevel(models.Model):
+    """
+    Уровень (ось) группировки внутри серии, напр. «Комплектность».
+    Порядок уровней задаёт вложенность переключателя. Структурно повторяет
+    Characteristic + CharacteristicOption, но это отдельный механизм.
+    """
+    group = models.ForeignKey(
+        ProductGroup,
+        verbose_name="Серия",
+        on_delete=models.CASCADE,
+        related_name="levels",
+    )
+    name = models.CharField("Название уровня", max_length=255)
+    order = models.PositiveIntegerField("Порядок", default=0)
+
+    class Meta:
+        verbose_name = "Уровень группировки"
+        verbose_name_plural = "Уровни группировки"
+        ordering = ["order", "id"]
+        constraints = [
+            models.UniqueConstraint(fields=["group", "name"], name="uniq_group_level_name"),
+        ]
+
+    def __str__(self):
+        return f"{self.group.name}: {self.name}"
+
+
+class GroupLevelValue(models.Model):
+    """Допустимое значение уровня группировки, напр. «Одиночный», «Набор»."""
+    level = models.ForeignKey(
+        GroupLevel,
+        verbose_name="Уровень",
+        on_delete=models.CASCADE,
+        related_name="values",
+    )
+    value = models.CharField("Значение", max_length=255)
+    order = models.PositiveIntegerField("Порядок", default=0)
+
+    class Meta:
+        verbose_name = "Значение уровня"
+        verbose_name_plural = "Значения уровней"
+        ordering = ["order", "value"]
+        constraints = [
+            models.UniqueConstraint(fields=["level", "value"], name="uniq_level_value"),
+        ]
+
+    def __str__(self):
+        return f"{self.level.name}: {self.value}"
+
+
 class Product(models.Model):
     """Карточка товара."""
     name = models.CharField("Название", max_length=255)
@@ -205,6 +279,27 @@ class Product(models.Model):
         verbose_name="Документы",
         related_name="products",
         blank=True,
+    )
+
+    # Группировка вариантов (переключатель «соседей» на карточке)
+    group = models.ForeignKey(
+        ProductGroup,
+        verbose_name="Серия (группа вариантов)",
+        on_delete=models.SET_NULL,
+        related_name="products",
+        blank=True,
+        null=True,
+    )
+    group_order = models.PositiveIntegerField(
+        "Порядок в серии",
+        default=0,
+        help_text="Порядок отображения в переключателе вариантов.",
+    )
+    variant_label = models.CharField(
+        "Подпись варианта",
+        max_length=255,
+        blank=True,
+        help_text="Короткая подпись для переключателя. Пусто — берётся название товара.",
     )
 
     created_at = models.DateTimeField("Создан", auto_now_add=True)
@@ -314,3 +409,58 @@ class ProductAttributeValue(models.Model):
         if t == Characteristic.Type.MULTI_SELECT:
             return [o.value for o in self.value_options.all()]
         return None
+
+
+class ProductGroupValue(models.Model):
+    """
+    Значение товара на конкретном уровне группировки (однозначное).
+    На каждый (товар, уровень) — ровно одна запись (уникальность ниже).
+    """
+    product = models.ForeignKey(
+        Product,
+        verbose_name="Товар",
+        on_delete=models.CASCADE,
+        related_name="group_values",
+    )
+    level = models.ForeignKey(
+        GroupLevel,
+        verbose_name="Уровень",
+        on_delete=models.CASCADE,
+        related_name="product_values",
+    )
+    value = models.ForeignKey(
+        GroupLevelValue,
+        verbose_name="Значение",
+        on_delete=models.CASCADE,
+        related_name="product_values",
+    )
+
+    class Meta:
+        verbose_name = "Значение группировки товара"
+        verbose_name_plural = "Значения группировки товара"
+        constraints = [
+            models.UniqueConstraint(
+                fields=["product", "level"],
+                name="uniq_product_group_level",
+            )
+        ]
+
+    def __str__(self):
+        return f"{self.product} — {self.level.name}: {self.value.value}"
+
+    def clean(self):
+        # значение должно принадлежать выбранному уровню, а уровень — серии товара
+        from django.core.exceptions import ValidationError
+
+        errors = {}
+        if self.value_id and self.level_id and self.value.level_id != self.level_id:
+            errors["value"] = "Значение не относится к выбранному уровню."
+        if (
+            self.level_id
+            and self.product_id
+            and self.product.group_id
+            and self.level.group_id != self.product.group_id
+        ):
+            errors["level"] = "Уровень относится к другой серии, не к серии этого товара."
+        if errors:
+            raise ValidationError(errors)
