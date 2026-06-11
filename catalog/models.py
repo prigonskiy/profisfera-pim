@@ -227,6 +227,75 @@ class GroupLevelValue(models.Model):
         return f"{self.level.name}: {self.value}"
 
 
+class Audience(models.Model):
+    """
+    Аудитория (для кого товар): врач-стоматолог, зубной техник, общая медицина,
+    пациент и т.д. Навигационная таксономия — многозначная связь с товаром.
+    """
+    name = models.CharField("Название", max_length=255)
+    slug = models.SlugField("Slug", unique=True, max_length=255, blank=True, help_text=SLUG_HELP)
+    icon = models.CharField(
+        "Иконка", max_length=64, blank=True,
+        help_text="Идентификатор иконки для меню магазина (опционально).",
+    )
+    description = models.TextField(
+        "Описание", blank=True, help_text="Текст для посадочной страницы (SEO)."
+    )
+    order = models.PositiveIntegerField("Порядок", default=0)
+
+    class Meta:
+        verbose_name = "Аудитория"
+        verbose_name_plural = "Аудитории"
+        ordering = ["order", "name"]
+
+    def __str__(self):
+        return self.name
+
+    def save(self, *args, **kwargs):
+        if not self.slug:
+            self.slug = unique_slugify(self, self.name)
+        super().save(*args, **kwargs)
+
+
+class Direction(models.Model):
+    """
+    Направление/специализация внутри аудитории: у стоматолога — терапия, хирургия…,
+    у техника — CAD/CAM, керамика… Привязка к аудитории даёт чистые профильные
+    фильтры. audience пусто → общее направление (видно во всех разделах).
+    """
+    name = models.CharField("Название", max_length=255)
+    slug = models.SlugField("Slug", unique=True, max_length=255, blank=True, help_text=SLUG_HELP)
+    audience = models.ForeignKey(
+        Audience,
+        verbose_name="Аудитория",
+        on_delete=models.CASCADE,
+        related_name="directions",
+        blank=True,
+        null=True,
+        help_text="Чьё это направление. Пусто — общее (для всех аудиторий).",
+    )
+    icon = models.CharField("Иконка", max_length=64, blank=True)
+    description = models.TextField(
+        "Описание", blank=True, help_text="Текст для посадочной страницы (SEO)."
+    )
+    order = models.PositiveIntegerField("Порядок", default=0)
+
+    class Meta:
+        verbose_name = "Направление"
+        verbose_name_plural = "Направления"
+        ordering = ["audience__order", "order", "name"]
+
+    def __str__(self):
+        if self.audience_id:
+            return f"{self.audience.name}: {self.name}"
+        return self.name
+
+    def save(self, *args, **kwargs):
+        if not self.slug:
+            self.slug = unique_slugify(self, self.name)
+        super().save(*args, **kwargs)
+
+
 class Product(models.Model):
     """Карточка товара."""
     name = models.CharField("Название", max_length=255)
@@ -327,6 +396,20 @@ class Product(models.Model):
         max_length=255,
         blank=True,
         help_text="Короткая подпись для переключателя. Пусто — берётся название товара.",
+    )
+
+    # Навигационные фасеты: для кого и для какого направления
+    audiences = models.ManyToManyField(
+        Audience,
+        verbose_name="Аудитории",
+        related_name="products",
+        blank=True,
+    )
+    directions = models.ManyToManyField(
+        Direction,
+        verbose_name="Направления",
+        related_name="products",
+        blank=True,
     )
 
     created_at = models.DateTimeField("Создан", auto_now_add=True)

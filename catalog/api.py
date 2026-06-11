@@ -5,13 +5,16 @@ from rest_framework.decorators import action
 from rest_framework.exceptions import NotFound, ParseError
 from rest_framework.response import Response
 
-from .models import Brand, Category, Characteristic, Document, Product
+from .models import Audience, Brand, Category, Characteristic, Direction, Document, Product
 from .permissions import IsStaffOrReadOnly
 from .serializers import (
+    AudienceMenuSerializer,
+    AudienceSerializer,
     BrandSerializer,
     CategorySerializer,
     CategoryTreeSerializer,
     CharacteristicSerializer,
+    DirectionSerializer,
     DocumentSerializer,
     ProductDetailSerializer,
     ProductListSerializer,
@@ -68,6 +71,33 @@ class DocumentViewSet(viewsets.ModelViewSet):
     permission_classes = [IsStaffOrReadOnly]
 
 
+class AudienceViewSet(viewsets.ModelViewSet):
+    queryset = Audience.objects.all()
+    serializer_class = AudienceSerializer
+    permission_classes = [IsStaffOrReadOnly]
+    lookup_field = "slug"
+
+    @action(detail=False, methods=["get"])
+    def menu(self, request):
+        """Все аудитории со вложенными направлениями — готовое дерево для меню."""
+        audiences = Audience.objects.prefetch_related("directions").all()
+        data = AudienceMenuSerializer(audiences, many=True, context={"request": request}).data
+        return Response(data)
+
+
+class DirectionViewSet(viewsets.ModelViewSet):
+    serializer_class = DirectionSerializer
+    permission_classes = [IsStaffOrReadOnly]
+    lookup_field = "slug"
+
+    def get_queryset(self):
+        qs = Direction.objects.select_related("audience").all()
+        audience = self.request.query_params.get("audience")
+        if audience:
+            qs = qs.filter(audience__slug=audience)
+        return qs
+
+
 class ProductViewSet(viewsets.ModelViewSet):
     permission_classes = [IsStaffOrReadOnly]
     lookup_field = "slug"
@@ -81,6 +111,8 @@ class ProductViewSet(viewsets.ModelViewSet):
             .prefetch_related(
                 "images",
                 "documents",
+                "audiences",
+                "directions",
                 "attribute_values__characteristic",
                 "attribute_values__value_options",
                 "group__levels",
@@ -97,6 +129,17 @@ class ProductViewSet(viewsets.ModelViewSet):
         brand = self.request.query_params.get("brand")
         if brand:
             qs = qs.filter(brand_id=brand)
+
+        # навигационные фасеты: ?audience=slug[,slug] и ?direction=slug[,slug]
+        # внутри одного параметра slug'и работают как ИЛИ, между параметрами — И
+        audience = self.request.query_params.get("audience")
+        if audience:
+            slugs = [s.strip() for s in audience.split(",") if s.strip()]
+            qs = qs.filter(audiences__slug__in=slugs).distinct()
+        direction = self.request.query_params.get("direction")
+        if direction:
+            slugs = [s.strip() for s in direction.split(",") if s.strip()]
+            qs = qs.filter(directions__slug__in=slugs).distinct()
 
         # сопоставление с внешними системами (Litics): по коду из 1С
         external_id = self.request.query_params.get("external_id")

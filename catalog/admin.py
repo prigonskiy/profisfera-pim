@@ -1,14 +1,16 @@
-from adminsortable2.admin import SortableAdminBase, SortableInlineAdminMixin
+from adminsortable2.admin import SortableAdminBase, SortableAdminMixin, SortableInlineAdminMixin
 from django import forms
 from django.contrib import admin
 from image_uploader_widget.admin import OrderedImageUploaderInline
 from tinymce.widgets import TinyMCE
 
 from .models import (
+    Audience,
     Brand,
     Category,
     Characteristic,
     CharacteristicOption,
+    Direction,
     Document,
     GroupLevel,
     GroupLevelValue,
@@ -64,6 +66,32 @@ class CharacteristicAdmin(SortableAdminBase, admin.ModelAdmin):
 class DocumentAdmin(admin.ModelAdmin):
     list_display = ("name", "number", "file")
     search_fields = ("name", "number")
+
+
+# ---------------------------------------------------------------------------
+# Навигационные фасеты: аудитории и направления
+# ---------------------------------------------------------------------------
+class DirectionInline(SortableInlineAdminMixin, admin.TabularInline):
+    model = Direction
+    extra = 1
+    fields = ("name", "slug", "order")
+    show_change_link = True  # перейти на направление (описание для SEO и т.д.)
+
+
+@admin.register(Audience)
+class AudienceAdmin(SortableAdminMixin, admin.ModelAdmin):
+    list_display = ("name", "slug", "order")
+    search_fields = ("name",)
+    inlines = [DirectionInline]
+
+
+@admin.register(Direction)
+class DirectionAdmin(admin.ModelAdmin):
+    list_display = ("name", "audience", "slug", "order")
+    list_filter = ("audience",)
+    search_fields = ("name",)
+    autocomplete_fields = ("audience",)
+    ordering = ("audience__order", "order", "name")
 
 
 # ---------------------------------------------------------------------------
@@ -190,10 +218,10 @@ class ProductGroupValueInline(admin.TabularInline):
 class ProductAdmin(admin.ModelAdmin):
     form = ProductAdminForm
     list_display = ("name", "category", "brand", "group", "manufacturer_sku", "external_id", "updated_at")
-    list_filter = ("category", "brand", "group", "country_of_origin")
+    list_filter = ("category", "brand", "group", "country_of_origin", "audiences", "directions")
     search_fields = ("name", "manufacturer_sku", "external_id", "gtin")
     autocomplete_fields = ("category", "brand", "group")
-    filter_horizontal = ("documents",)
+    filter_horizontal = ("documents", "audiences", "directions")
     inlines = [ProductImageInline, ProductGroupValueInline]
     base_fieldsets = (
         ("Основное", {
@@ -201,6 +229,11 @@ class ProductAdmin(admin.ModelAdmin):
         }),
         ("Классификация и производство", {
             "fields": ("tnved_code", "country_of_origin"),
+        }),
+        ("Навигация (для кого / направления)", {
+            "fields": ("audiences", "directions"),
+            "description": "Многозначные фасеты для профильных разделов магазина. "
+                           "Универсальный товар можно отметить сразу несколькими аудиториями/направлениями.",
         }),
         ("Описания", {
             "fields": ("short_description", "full_description"),

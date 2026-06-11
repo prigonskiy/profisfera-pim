@@ -6,9 +6,11 @@ from django.views.generic import RedirectView
 from rest_framework.routers import DefaultRouter
 
 from catalog.api import (
+    AudienceViewSet,
     BrandViewSet,
     CategoryViewSet,
     CharacteristicViewSet,
+    DirectionViewSet,
     DocumentViewSet,
     ProductViewSet,
 )
@@ -19,6 +21,8 @@ router.register("categories", CategoryViewSet, basename="category")
 router.register("brands", BrandViewSet, basename="brand")
 router.register("characteristics", CharacteristicViewSet, basename="characteristic")
 router.register("documents", DocumentViewSet, basename="document")
+router.register("audiences", AudienceViewSet, basename="audience")
+router.register("directions", DirectionViewSet, basename="direction")
 
 urlpatterns = [
     path("admin/", admin.site.urls),

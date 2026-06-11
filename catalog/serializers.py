@@ -6,6 +6,8 @@ from .models import (
     Characteristic,
     CharacteristicOption,
     Document,
+    Audience,
+    Direction,
     Product,
     ProductImage,
 )
@@ -59,6 +61,32 @@ class DocumentSerializer(serializers.ModelSerializer):
 
 
 # ---------------------------------------------------------------------------
+# Навигационные фасеты
+# ---------------------------------------------------------------------------
+class AudienceSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Audience
+        fields = ("id", "name", "slug", "icon", "order")
+
+
+class DirectionSerializer(serializers.ModelSerializer):
+    audience = serializers.SlugRelatedField(slug_field="slug", read_only=True)
+
+    class Meta:
+        model = Direction
+        fields = ("id", "name", "slug", "icon", "order", "audience")
+
+
+class AudienceMenuSerializer(serializers.ModelSerializer):
+    """Аудитория со вложенными направлениями — для построения меню магазина."""
+    directions = DirectionSerializer(many=True, read_only=True)
+
+    class Meta:
+        model = Audience
+        fields = ("id", "name", "slug", "icon", "order", "directions")
+
+
+# ---------------------------------------------------------------------------
 # Товары
 # ---------------------------------------------------------------------------
 class ProductImageSerializer(serializers.ModelSerializer):
@@ -71,11 +99,14 @@ class ProductListSerializer(serializers.ModelSerializer):
     """Облегчённая выдача для списков каталога."""
     brand = serializers.StringRelatedField()
     category = serializers.SlugRelatedField(slug_field="slug", read_only=True)
+    audiences = serializers.SlugRelatedField(slug_field="slug", many=True, read_only=True)
+    directions = serializers.SlugRelatedField(slug_field="slug", many=True, read_only=True)
     thumbnail = serializers.SerializerMethodField()
 
     class Meta:
         model = Product
-        fields = ("id", "external_id", "name", "slug", "short_description", "brand", "category", "thumbnail")
+        fields = ("id", "external_id", "name", "slug", "short_description", "brand", "category",
+                  "audiences", "directions", "thumbnail")
 
     def get_thumbnail(self, obj):
         first = obj.images.all().first()
@@ -92,6 +123,8 @@ class ProductDetailSerializer(serializers.ModelSerializer):
     category = CategorySerializer(read_only=True)
     images = ProductImageSerializer(many=True, read_only=True)
     documents = DocumentSerializer(many=True, read_only=True)
+    audiences = AudienceSerializer(many=True, read_only=True)
+    directions = DirectionSerializer(many=True, read_only=True)
     logistics = serializers.SerializerMethodField()
     characteristics = serializers.SerializerMethodField()
     group = serializers.SerializerMethodField()
@@ -102,7 +135,7 @@ class ProductDetailSerializer(serializers.ModelSerializer):
         fields = (
             "id", "external_id", "name", "slug", "short_description", "full_description",
             "manufacturer_sku", "gtin", "tnved_code", "country_of_origin",
-            "brand", "category", "logistics",
+            "brand", "category", "audiences", "directions", "logistics",
             "images", "characteristics", "documents", "group",
         )
 
@@ -186,7 +219,7 @@ class ProductWriteSerializer(serializers.ModelSerializer):
         fields = (
             "id", "external_id", "name", "slug", "short_description", "full_description",
             "manufacturer_sku", "gtin", "tnved_code", "country_of_origin",
-            "category", "brand",
+            "category", "brand", "audiences", "directions",
             "gross_width_mm", "gross_height_mm", "gross_depth_mm", "gross_weight_kg",
             "documents",
             "group", "group_order", "variant_label",
