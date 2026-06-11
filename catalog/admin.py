@@ -49,14 +49,14 @@ class CharacteristicOptionInline(SortableInlineAdminMixin, admin.TabularInline):
 
 @admin.register(Characteristic)
 class CharacteristicAdmin(SortableAdminBase, admin.ModelAdmin):
-    list_display = ("name", "code", "type", "unit")
-    list_filter = ("type", "categories")
+    list_display = ("name", "code", "type", "unit", "is_global")
+    list_filter = ("type", "is_global", "categories")
     search_fields = ("name", "code")
     filter_horizontal = ("categories",)
     inlines = [CharacteristicOptionInline]
     fieldsets = (
-        (None, {"fields": ("name", "code", "type", "unit")}),
-        ("Привязка к категориям", {"fields": ("categories",)}),
+        (None, {"fields": ("name", "code", "type", "unit", "is_global")}),
+        ("Привязка к категориям (только для НЕ общих)", {"fields": ("categories",)}),
     )
 
 
@@ -190,14 +190,17 @@ class ProductGroupValueInline(admin.TabularInline):
 class ProductAdmin(admin.ModelAdmin):
     form = ProductAdminForm
     list_display = ("name", "category", "brand", "group", "manufacturer_sku", "external_id", "updated_at")
-    list_filter = ("category", "brand", "group")
-    search_fields = ("name", "manufacturer_sku", "external_id")
+    list_filter = ("category", "brand", "group", "country_of_origin")
+    search_fields = ("name", "manufacturer_sku", "external_id", "gtin")
     autocomplete_fields = ("category", "brand", "group")
     filter_horizontal = ("documents",)
     inlines = [ProductImageInline, ProductGroupValueInline]
     base_fieldsets = (
         ("Основное", {
-            "fields": ("name", "slug", "external_id", "brand", "category", "manufacturer_sku"),
+            "fields": ("name", "slug", "external_id", "gtin", "brand", "category", "manufacturer_sku"),
+        }),
+        ("Классификация и производство", {
+            "fields": ("tnved_code", "country_of_origin"),
         }),
         ("Описания", {
             "fields": ("short_description", "full_description"),
@@ -223,28 +226,45 @@ class ProductAdmin(admin.ModelAdmin):
         }),
     )
 
+    def _global_characteristics(self):
+        """Общие характеристики — показываются у любого товара."""
+        return list(
+            Characteristic.objects.filter(is_global=True).prefetch_related("options")
+        )
+
     def _category_characteristics(self, obj):
-        """Характеристики, привязанные к категории товара (или пустой список)."""
+        """Категорийные характеристики (НЕ общие), привязанные к категории товара."""
         if obj and obj.category_id:
             return list(
-                obj.category.characteristics.all().prefetch_related("options")
+                obj.category.characteristics.filter(is_global=False).prefetch_related("options")
             )
         return []
 
+    def _dynamic_characteristics(self, obj):
+        return self._global_characteristics() + self._category_characteristics(obj)
+
     def get_fieldsets(self, request, obj=None):
         fieldsets = list(self.base_fieldsets)
-        chars = self._category_characteristics(obj)
-        if chars:
-            names = [f"char_{ch.id}" for ch in chars]
-            fieldsets.append(("Категорийные характеристики", {"fields": names}))
+        global_chars = self._global_characteristics()
+        if global_chars:
+            fieldsets.append((
+                "Общие характеристики",
+                {"fields": [f"char_{ch.id}" for ch in global_chars]},
+            ))
+        cat_chars = self._category_characteristics(obj)
+        if cat_chars:
+            fieldsets.append((
+                "Категорийные характеристики",
+                {"fields": [f"char_{ch.id}" for ch in cat_chars]},
+            ))
         return fieldsets
 
     def get_form(self, request, obj=None, change=False, **kwargs):
-        # Объявляем динамические поля характеристик на классе формы, чтобы
-        # они прошли валидацию набора полей и отрисовались в своём филдсете.
+        # Объявляем динамические поля характеристик (общие + категорийные) на классе
+        # формы, чтобы они прошли валидацию набора полей и отрисовались в филдсетах.
         extra = {
             f"char_{ch.id}": build_characteristic_field(ch)
-            for ch in self._category_characteristics(obj)
+            for ch in self._dynamic_characteristics(obj)
         }
         base_form = kwargs.get("form", self.form)
         if extra:

@@ -1,7 +1,8 @@
 from django.core.validators import FileExtensionValidator
 from django.db import models
+from django_countries.fields import CountryField
 
-from .utils import unique_slugify
+from .utils import unique_slugify, validate_gtin
 
 SLUG_HELP = "Оставьте пустым — сгенерируется автоматически из названия (транслитерацией)."
 
@@ -86,6 +87,12 @@ class Characteristic(models.Model):
         verbose_name="Категории",
         related_name="characteristics",
         blank=True,
+    )
+    is_global = models.BooleanField(
+        "Общая характеристика",
+        default=False,
+        help_text="Показывать у всех товаров независимо от категории. Если выключено — "
+                  "только у товаров категорий из списка ниже.",
     )
     order = models.PositiveIntegerField("Порядок", default=0)
 
@@ -257,6 +264,26 @@ class Product(models.Model):
         blank=True,
         help_text="Код из 1С, по которому товар сопоставляется во внешних системах "
                   "(Litics). Уникальный; оставьте пустым, если ещё не присвоен.",
+    )
+
+    # Постоянные характеристики: идентификация и классификация
+    gtin = models.CharField(
+        "Штрих-код (GTIN)",
+        max_length=14,
+        blank=True,
+        validators=[validate_gtin],
+        help_text="Глобальный номер товара: EAN-8/13, UPC-A (12) или GTIN-14. Только цифры.",
+    )
+    tnved_code = models.CharField(
+        "Код ТН ВЭД",
+        max_length=10,
+        blank=True,
+        help_text="Код товарной номенклатуры ВЭД ЕАЭС (до 10 цифр). Пока вводится вручную.",
+    )
+    country_of_origin = CountryField(
+        verbose_name="Страна производства",
+        blank=True,
+        help_text="Страна, где произведён товар.",
     )
 
     # Постоянные характеристики: логистический блок (брутто)

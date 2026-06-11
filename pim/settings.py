@@ -70,6 +70,7 @@ INSTALLED_APPS = [
     'adminsortable2',   # drag-and-drop сортировка в админке
     'tinymce',          # визуальный HTML-редактор
     'image_uploader_widget',  # пакетная загрузка/превью/сортировка изображений
+    'django_countries',  # справочник стран для поля «страна производства»
 
     # local apps
     'catalog',

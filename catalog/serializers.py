@@ -49,7 +49,7 @@ class CharacteristicSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Characteristic
-        fields = ("id", "name", "code", "type", "unit", "options")
+        fields = ("id", "name", "code", "type", "unit", "is_global", "options")
 
 
 class DocumentSerializer(serializers.ModelSerializer):
@@ -95,12 +95,14 @@ class ProductDetailSerializer(serializers.ModelSerializer):
     logistics = serializers.SerializerMethodField()
     characteristics = serializers.SerializerMethodField()
     group = serializers.SerializerMethodField()
+    country_of_origin = serializers.SerializerMethodField()
 
     class Meta:
         model = Product
         fields = (
             "id", "external_id", "name", "slug", "short_description", "full_description",
-            "manufacturer_sku", "brand", "category", "logistics",
+            "manufacturer_sku", "gtin", "tnved_code", "country_of_origin",
+            "brand", "category", "logistics",
             "images", "characteristics", "documents", "group",
         )
 
@@ -125,9 +127,16 @@ class ProductDetailSerializer(serializers.ModelSerializer):
                 "name": ch.name,
                 "type": ch.type,
                 "unit": ch.unit,
+                "is_global": ch.is_global,
                 "value": av.value,
             })
         return items
+
+    def get_country_of_origin(self, obj):
+        country = obj.country_of_origin
+        if not country:
+            return None
+        return {"code": country.code, "name": country.name}
 
     def get_group(self, obj):
         """Серия товара и список её вариантов для переключателя на карточке."""
@@ -176,7 +185,8 @@ class ProductWriteSerializer(serializers.ModelSerializer):
         model = Product
         fields = (
             "id", "external_id", "name", "slug", "short_description", "full_description",
-            "manufacturer_sku", "category", "brand",
+            "manufacturer_sku", "gtin", "tnved_code", "country_of_origin",
+            "category", "brand",
             "gross_width_mm", "gross_height_mm", "gross_depth_mm", "gross_weight_kg",
             "documents",
             "group", "group_order", "variant_label",
