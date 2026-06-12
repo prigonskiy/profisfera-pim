@@ -283,7 +283,7 @@ class Direction(models.Model):
     class Meta:
         verbose_name = "Направление"
         verbose_name_plural = "Направления"
-        ordering = ["audience__order", "order", "name"]
+        ordering = ["order", "name"]
 
     def __str__(self):
         if self.audience_id:

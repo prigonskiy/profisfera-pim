@@ -91,7 +91,10 @@ class DirectionViewSet(viewsets.ModelViewSet):
     lookup_field = "slug"
 
     def get_queryset(self):
-        qs = Direction.objects.select_related("audience").all()
+        qs = (
+            Direction.objects.select_related("audience")
+            .order_by("audience__order", "order", "name")
+        )
         audience = self.request.query_params.get("audience")
         if audience:
             qs = qs.filter(audience__slug=audience)
