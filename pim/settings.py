@@ -44,6 +44,7 @@ ALLOWED_HOSTS = [h for h in os.getenv("ALLOWED_HOSTS", "*").split(",") if h]
 # Доверенные источники для CSRF (нужно для админки не на localhost).
 # Со схемой, через запятую: "http://1.2.3.4" или "https://example.com".
 CSRF_TRUSTED_ORIGINS = [o for o in os.getenv("CSRF_TRUSTED_ORIGINS", "").split(",") if o]
+CORS_ALLOWED_ORIGINS = [o for o in os.getenv("CORS_ALLOWED_ORIGINS", "").split(",") if o]
 
 # Куки только по HTTPS — включить (COOKIE_SECURE=1), когда появится домен с TLS.
 SESSION_COOKIE_SECURE = os.getenv("COOKIE_SECURE", "0") == "1"
@@ -71,7 +72,7 @@ INSTALLED_APPS = [
     'tinymce',          # визуальный HTML-редактор
     'image_uploader_widget',  # пакетная загрузка/превью/сортировка изображений
     'django_countries',  # справочник стран для поля «страна производства»
-
+    'corsheaders',
     # local apps
     'catalog',
 ]
@@ -105,6 +106,7 @@ REST_FRAMEWORK = {
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    'corsheaders.middleware.CorsMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
