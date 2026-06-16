@@ -29,8 +29,19 @@ admin.site.index_title = "Управление каталогом"
 # ---------------------------------------------------------------------------
 # Простые сущности
 # ---------------------------------------------------------------------------
+class BrandAdminForm(forms.ModelForm):
+    class Meta:
+        model = Brand
+        fields = "__all__"
+        widgets = {
+            # Описание бренда — визуальный HTML-редактор, как у полного описания товара.
+            "description": TinyMCE(),
+        }
+
+
 @admin.register(Brand)
 class BrandAdmin(admin.ModelAdmin):
+    form = BrandAdminForm
     list_display = ("name", "slug")
     search_fields = ("name",)
 
