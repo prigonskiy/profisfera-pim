@@ -1,8 +1,18 @@
 from adminsortable2.admin import SortableAdminBase, SortableAdminMixin, SortableInlineAdminMixin
 from django import forms
-from django.contrib import admin
+from django.contrib import admin, messages
+from django.shortcuts import render
+from django.urls import path
 from image_uploader_widget.admin import OrderedImageUploaderInline
 from tinymce.widgets import TinyMCE
+
+from .catalog_io import (
+    build_export_workbook,
+    category_labels,
+    category_with_descendants,
+    import_workbook,
+    workbook_response,
+)
 
 from .models import (
     Audience,
@@ -228,15 +238,74 @@ class ProductGroupValueInline(admin.TabularInline):
 @admin.register(Product)
 class ProductAdmin(admin.ModelAdmin):
     form = ProductAdminForm
-    list_display = ("name", "category", "brand", "group", "manufacturer_sku", "external_id", "updated_at")
+    list_display = ("sku", "name", "category", "brand", "group", "manufacturer_sku", "external_id", "updated_at")
     list_filter = ("category", "brand", "group", "country_of_origin", "audiences", "directions")
-    search_fields = ("name", "manufacturer_sku", "external_id", "gtin")
+    search_fields = ("name", "manufacturer_sku", "external_id", "gtin", "sku")
+    readonly_fields = ("sku",)
     autocomplete_fields = ("category", "brand", "group")
     filter_horizontal = ("documents", "audiences", "directions")
     inlines = [ProductImageInline, ProductGroupValueInline]
+    change_list_template = "admin/catalog/product/change_list.html"
+    actions = ["export_general", "export_full"]
+
+    # ---- Экспорт в Excel -------------------------------------------------
+    @admin.action(description="Экспорт в Excel: базовые поля + общие характеристики")
+    def export_general(self, request, queryset):
+        wb = build_export_workbook(queryset, include_category_chars=False)
+        return workbook_response(wb, "catalog_obshchie")
+
+    @admin.action(description="Экспорт в Excel: + категорийные характеристики выбранных")
+    def export_full(self, request, queryset):
+        wb = build_export_workbook(queryset, include_category_chars=True)
+        return workbook_response(wb, "catalog_polnyy")
+
+    def get_urls(self):
+        custom = [
+            path("export/", self.admin_site.admin_view(self.export_view),
+                 name="catalog_product_export"),
+            path("import/", self.admin_site.admin_view(self.import_view),
+                 name="catalog_product_import"),
+        ]
+        return custom + super().get_urls()
+
+    def import_view(self, request):
+        report = None
+        if request.method == "POST":
+            dry_run = bool(request.POST.get("dry_run"))
+            f = request.FILES.get("file")
+            if not f:
+                self.message_user(request, "Файл не выбран.", level=messages.ERROR)
+            else:
+                try:
+                    report = import_workbook(f, dry_run=dry_run)
+                except Exception as e:
+                    self.message_user(request, f"Не удалось прочитать файл: {e}", level=messages.ERROR)
+        ctx = {
+            **self.admin_site.each_context(request),
+            "title": "Импорт каталога из Excel",
+            "opts": self.model._meta,
+            "report": report,
+        }
+        return render(request, "admin/catalog/product/import.html", ctx)
+
+    def export_view(self, request):
+        if request.method == "POST":
+            if request.POST.get("mode") == "category" and request.POST.get("category"):
+                ids = category_with_descendants(int(request.POST["category"]))
+                qs = Product.objects.filter(category_id__in=ids)
+                return workbook_response(build_export_workbook(qs, True), "catalog_category")
+            qs = Product.objects.all()
+            return workbook_response(build_export_workbook(qs, False), "catalog_vse")
+        ctx = {
+            **self.admin_site.each_context(request),
+            "title": "Экспорт каталога в Excel",
+            "categories": category_labels(),
+            "opts": self.model._meta,
+        }
+        return render(request, "admin/catalog/product/export.html", ctx)
     base_fieldsets = (
         ("Основное", {
-            "fields": ("name", "slug", "external_id", "gtin", "brand", "category", "manufacturer_sku"),
+            "fields": ("sku", "name", "slug", "external_id", "gtin", "brand", "category", "manufacturer_sku"),
         }),
         ("Классификация и производство", {
             "fields": ("tnved_code", "country_of_origin"),

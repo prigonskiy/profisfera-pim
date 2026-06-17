@@ -1,5 +1,5 @@
 from django.core.validators import FileExtensionValidator
-from django.db import models
+from django.db import models, transaction
 from django_countries.fields import CountryField
 
 from .utils import unique_slugify, validate_gtin
@@ -296,6 +296,33 @@ class Direction(models.Model):
         super().save(*args, **kwargs)
 
 
+class SkuCounter(models.Model):
+    """
+    Счётчик внутренних артикулов PIM (sku). Ровно одна строка (pk=1).
+    Отдельный счётчик, а не max(sku)+1 — это безопасно при гонках и не зависит
+    от удалённых товаров (номер не переиспользуется).
+    """
+    SKU_START = 1000000000  # первый выданный артикул будет 1000000001
+
+    current = models.BigIntegerField("Текущее значение", default=SKU_START)
+
+    class Meta:
+        verbose_name = "Счётчик артикулов PIM"
+        verbose_name_plural = "Счётчик артикулов PIM"
+
+    def __str__(self):
+        return str(self.current)
+
+    @classmethod
+    def next_value(cls):
+        with transaction.atomic():
+            cls.objects.get_or_create(pk=1)
+            row = cls.objects.select_for_update().get(pk=1)
+            row.current += 1
+            row.save(update_fields=["current"])
+            return row.current
+
+
 class Product(models.Model):
     """Карточка товара."""
     name = models.CharField("Название", max_length=255)
@@ -325,6 +352,16 @@ class Product(models.Model):
         null=True,
     )
     manufacturer_sku = models.CharField("Артикул производителя", max_length=128, blank=True)
+    sku = models.CharField(
+        "Артикул PIM",
+        max_length=32,
+        unique=True,
+        null=True,
+        blank=True,
+        editable=False,
+        db_index=True,
+        help_text="Внутренний идентификатор товара в PIM. Присваивается автоматически и не меняется.",
+    )
     external_id = models.CharField(
         "Глобальный идентификатор (код сопоставления)",
         max_length=255,
@@ -428,6 +465,8 @@ class Product(models.Model):
         self.external_id = (self.external_id or "").strip() or None
         if not self.slug:
             self.slug = unique_slugify(self, self.name)
+        if not self.sku:
+            self.sku = str(SkuCounter.next_value())
         super().save(*args, **kwargs)
 
 

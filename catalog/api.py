@@ -1,8 +1,10 @@
 from django.utils import timezone
 from django.utils.dateparse import parse_datetime
+from django.db.models import Q
 from rest_framework import filters, viewsets
 from rest_framework.decorators import action
 from rest_framework.exceptions import NotFound, ParseError
+from rest_framework.generics import get_object_or_404
 from rest_framework.response import Response
 
 from .models import Audience, Brand, Category, Characteristic, Direction, Document, Product
@@ -107,6 +109,14 @@ class ProductViewSet(viewsets.ModelViewSet):
     filter_backends = [filters.SearchFilter, filters.OrderingFilter]
     search_fields = ["name", "manufacturer_sku", "short_description"]
     ordering_fields = ["name", "created_at", "updated_at"]
+
+    def get_object(self):
+        # к товару можно обратиться и по slug, и по внутреннему артикулу sku
+        value = self.kwargs[self.lookup_field]
+        qs = self.filter_queryset(self.get_queryset())
+        obj = get_object_or_404(qs, Q(slug=value) | Q(sku=value))
+        self.check_object_permissions(self.request, obj)
+        return obj
 
     def get_queryset(self):
         qs = (

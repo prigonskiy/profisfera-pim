@@ -1,0 +1,47 @@
+{% extends "admin/base_site.html" %}
+{% block breadcrumbs %}
+<div class="breadcrumbs">
+  <a href="{% url 'admin:index' %}">Главная</a>
+  &rsaquo; <a href="{% url 'admin:app_list' app_label=opts.app_label %}">{{ opts.app_config.verbose_name }}</a>
+  &rsaquo; <a href="{% url 'admin:catalog_product_changelist' %}">Товары</a>
+  &rsaquo; Импорт
+</div>
+{% endblock %}
+{% block content %}
+<form method="post" enctype="multipart/form-data">{% csrf_token %}
+  <fieldset class="module aligned">
+    <h2>Загрузка каталога из .xlsx</h2>
+    <div class="form-row"><label>Файл:</label> <input type="file" name="file" accept=".xlsx" required></div>
+    <div class="form-row">
+      <label><input type="checkbox" name="dry_run" checked> Только проверить (предпросмотр, без записи)</label>
+    </div>
+    <p class="help">Формат — как у выгрузки: строка 1 — идентификаторы, данные с третьей строки.
+      Сопоставление по «Артикул PIM» (sku); пустой sku — новый товар (берётся external_id, если задан).
+      Сначала запустите с галочкой предпросмотра, проверьте отчёт, потом снимите галочку и примените.</p>
+  </fieldset>
+  <div class="submit-row"><input type="submit" value="Загрузить" class="default"></div>
+</form>
+
+{% if report %}
+<div class="module" style="margin-top:20px;padding:12px 16px">
+  {% if report.applied %}
+    <h2 style="color:#0a6e73">Изменения применены</h2>
+  {% else %}
+    <h2>Предпросмотр (изменения НЕ применены)</h2>
+  {% endif %}
+  <p>Создано: <b>{{ report.created }}</b> · Обновлено: <b>{{ report.updated }}</b> · Пропущено: <b>{{ report.skipped }}</b></p>
+
+  {% if report.errors %}
+    <h3 style="color:#b4541f">Ошибки ({{ report.errors|length }}) — эти строки не приняты:</h3>
+    <ul>{% for row, msg in report.errors %}<li>строка {{ row }}: {{ msg }}</li>{% endfor %}</ul>
+  {% endif %}
+  {% if report.warnings %}
+    <h3>Предупреждения ({{ report.warnings|length }}):</h3>
+    <ul>{% for w in report.warnings %}<li>{{ w }}</li>{% endfor %}</ul>
+  {% endif %}
+  {% if not report.applied and not report.errors %}
+    <p class="help">Ошибок нет. Чтобы записать изменения, снимите галочку «Только проверить» и загрузите файл снова.</p>
+  {% endif %}
+</div>
+{% endif %}
+{% endblock %}

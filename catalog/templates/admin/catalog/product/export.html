@@ -1,0 +1,30 @@
+{% extends "admin/base_site.html" %}
+{% block breadcrumbs %}
+<div class="breadcrumbs">
+  <a href="{% url 'admin:index' %}">Главная</a>
+  &rsaquo; <a href="{% url 'admin:app_list' app_label=opts.app_label %}">{{ opts.app_config.verbose_name }}</a>
+  &rsaquo; <a href="{% url 'admin:catalog_product_changelist' %}">Товары</a>
+  &rsaquo; Экспорт
+</div>
+{% endblock %}
+{% block content %}
+<form method="post">{% csrf_token %}
+  <fieldset class="module aligned">
+    <h2>Что выгрузить</h2>
+    <div class="form-row">
+      <label><input type="radio" name="mode" value="all" checked>
+        Все товары — базовые поля + общие характеристики</label>
+    </div>
+    <div class="form-row">
+      <label><input type="radio" name="mode" value="category">
+        Одна категория (+ её категорийные характеристики):</label>
+      <select name="category">
+        {% for cid, label in categories %}<option value="{{ cid }}">{{ label }}</option>{% endfor %}
+      </select>
+    </div>
+    <p class="help">Файл получится с листом «Справка» — словарём кодов, типов и допустимых
+      значений. Первый столбец <code>external_id</code> — ключ для обратной загрузки.</p>
+  </fieldset>
+  <div class="submit-row"><input type="submit" value="Скачать .xlsx" class="default"></div>
+</form>
+{% endblock %}
