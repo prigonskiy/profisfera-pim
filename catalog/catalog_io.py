@@ -378,7 +378,52 @@ def _set_char(product, char, cell):
         av.save(update_fields=["value_text"])
 
 
+def _validate_row(data, headers_present, char_columns, opt_map):
+    """Предпроверка значений по типам. Возвращает (ошибки, предупреждения).
+    Ошибки отклоняют строку целиком; предупреждения — информируют, но не блокируют."""
+    errors, warnings = [], []
+
+    # числовые габариты (брутто)
+    for dim, label in (
+        ("gross_width_mm", "Ширина брутто"), ("gross_height_mm", "Высота брутто"),
+        ("gross_depth_mm", "Глубина брутто"), ("gross_weight_kg", "Масса брутто"),
+    ):
+        if dim in headers_present:
+            s = _s(data.get(dim))
+            if s and _parse_decimal(data.get(dim)) is None:
+                errors.append(f"«{label}»: ожидается число, получено «{s}»")
+
+    # характеристики
+    for header, char in char_columns:
+        if header not in headers_present:
+            continue
+        raw = data.get(header)
+        s = _s(raw)
+        if not s:
+            continue  # пустая ячейка — законная очистка, не ошибка
+        if char.type == "boolean" and _parse_bool(raw) is None:
+            errors.append(f"«{char.name}»: ожидается Да/Нет, получено «{s}»")
+        elif char.type == "number" and _parse_decimal(raw) is None:
+            errors.append(f"«{char.name}»: ожидается число, получено «{s}»")
+        elif char.type in ("single_select", "multi_select"):
+            allowed = opt_map.get(char.id, set())
+            values = _split_multi(raw) if char.type == "multi_select" else [s]
+            unknown = [v for v in values if v.strip().lower() not in allowed]
+            if unknown and allowed:
+                warnings.append(
+                    f"«{char.name}»: значения не из справочника будут добавлены как новые: {', '.join(unknown)}"
+                )
+    return errors, warnings
+
+
 def _apply_row(data, headers_present, char_columns, maps, report, row_no):
+    # предпроверка по типам — до любых записей; ошибка отклоняет строку целиком
+    errors, warnings = _validate_row(data, headers_present, char_columns, maps.get("opt", {}))
+    for w in warnings:
+        report["warnings"].append(f"строка {row_no}: {w}")
+    if errors:
+        raise ValueError("; ".join(errors))
+
     sku = _s(data.get("sku"))
     ext = _s(data.get("external_id"))
     name = _s(data.get("name"))
@@ -495,9 +540,15 @@ def import_workbook(fileobj, dry_run=True):
                 char_columns.append((h, ch))
             else:
                 report["warnings"].append(f"неизвестный код характеристики «{h}» — столбец пропущен")
+    opt_map = {
+        ch.id: {_s(o.value).lower() for o in ch.options.all()}
+        for _h, ch in char_columns
+        if ch.type in ("single_select", "multi_select")
+    }
     maps = {
         "aud": {a.name.strip().lower(): a for a in Audience.objects.all()},
         "dir": {d.name.strip().lower(): d for d in Direction.objects.all()},
+        "opt": opt_map,
     }
 
     with transaction.atomic():
