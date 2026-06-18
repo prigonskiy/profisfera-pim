@@ -1,4 +1,5 @@
 from rest_framework import serializers
+from django_countries.serializer_fields import CountryField as CountrySerializerField
 
 from .models import (
     Brand,
@@ -227,6 +228,8 @@ class ProductWriteSerializer(serializers.ModelSerializer):
     привязку документов. Изображения и значения категорийных характеристик
     в этой версии управляются через админку.
     """
+    country_of_origin = CountrySerializerField(required=False, allow_blank=True)
+
     class Meta:
         model = Product
         fields = (
