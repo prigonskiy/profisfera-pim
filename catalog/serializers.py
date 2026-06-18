@@ -55,9 +55,22 @@ class CharacteristicSerializer(serializers.ModelSerializer):
 
 
 class DocumentSerializer(serializers.ModelSerializer):
+    doc_type_display = serializers.CharField(source="get_doc_type_display", read_only=True)
+    status = serializers.SerializerMethodField()
+    status_display = serializers.SerializerMethodField()
+
     class Meta:
         model = Document
-        fields = ("id", "name", "number", "file")
+        fields = (
+            "id", "name", "doc_type", "doc_type_display", "number", "issuing_authority",
+            "issued_date", "valid_until", "is_perpetual", "status", "status_display", "file",
+        )
+
+    def get_status(self, obj):
+        return obj.status.value
+
+    def get_status_display(self, obj):
+        return obj.status.label
 
 
 # ---------------------------------------------------------------------------

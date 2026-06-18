@@ -1,5 +1,6 @@
 from django.core.validators import FileExtensionValidator
 from django.db import models, transaction
+from django.utils import timezone
 from django_countries.fields import CountryField
 
 from .utils import unique_slugify, validate_gtin
@@ -136,8 +137,43 @@ class CharacteristicOption(models.Model):
 
 class Document(models.Model):
     """Документ на товар: PDF-файл с метаданными. Связь с товарами — многие-ко-многим."""
+
+    class DocType(models.TextChoices):
+        REGISTRATION = "registration", "Регистрационное удостоверение (РУ)"
+        DECLARATION = "declaration", "Декларация о соответствии"
+        CERTIFICATE = "certificate", "Сертификат соответствия"
+        STATE_REGISTRATION = "state_registration", "Свидетельство о госрегистрации (СГР)"
+        EXEMPTION = "exemption", "Отказное письмо"
+        IFU = "ifu", "Инструкция по применению"
+        MANUAL = "manual", "Руководство по эксплуатации"
+        PASSPORT = "passport", "Паспорт изделия"
+        QUALITY = "quality", "Сертификат качества / анализа"
+        OTHER = "other", "Другое"
+
+    class Status(models.TextChoices):
+        PERPETUAL = "perpetual", "Бессрочный"
+        VALID = "valid", "Действует"
+        EXPIRING = "expiring", "Скоро истекает"
+        EXPIRED = "expired", "Просрочен"
+        UNKNOWN = "unknown", "Срок не указан"
+
+    EXPIRY_SOON_DAYS = 30  # за сколько дней до конца считать «скоро истекает»
+
     name = models.CharField("Название", max_length=255)
+    doc_type = models.CharField(
+        "Тип документа", max_length=32, choices=DocType.choices, default=DocType.OTHER
+    )
     number = models.CharField("Номер", max_length=128, blank=True)
+    issuing_authority = models.CharField(
+        "Кем выдан", max_length=255, blank=True,
+        help_text="Орган или организация, выдавшая документ (например, Росздравнадзор).",
+    )
+    issued_date = models.DateField("Дата выдачи", null=True, blank=True)
+    valid_until = models.DateField(
+        "Действует до", null=True, blank=True,
+        help_text="Оставьте пустым, если срок не указан. Для бессрочных отметьте «Бессрочный».",
+    )
+    is_perpetual = models.BooleanField("Бессрочный", default=False)
     file = models.FileField(
         "Файл (PDF)",
         upload_to="documents/",
@@ -151,6 +187,26 @@ class Document(models.Model):
 
     def __str__(self):
         return self.name
+
+    @property
+    def days_left(self):
+        """Дней до окончания срока (отрицательное — просрочен). None — нет срока."""
+        if self.is_perpetual or not self.valid_until:
+            return None
+        return (self.valid_until - timezone.localdate()).days
+
+    @property
+    def status(self):
+        if self.is_perpetual:
+            return self.Status.PERPETUAL
+        if not self.valid_until:
+            return self.Status.UNKNOWN
+        days = self.days_left
+        if days < 0:
+            return self.Status.EXPIRED
+        if days <= self.EXPIRY_SOON_DAYS:
+            return self.Status.EXPIRING
+        return self.Status.VALID
 
 
 class ProductGroup(models.Model):

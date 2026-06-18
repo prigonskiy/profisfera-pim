@@ -1,8 +1,12 @@
+from datetime import timedelta
+
 from adminsortable2.admin import SortableAdminBase, SortableAdminMixin, SortableInlineAdminMixin
 from django import forms
 from django.contrib import admin, messages
 from django.shortcuts import render
 from django.urls import path
+from django.utils import timezone
+from django.utils.html import format_html
 from image_uploader_widget.admin import OrderedImageUploaderInline
 from tinymce.widgets import TinyMCE
 
@@ -83,10 +87,69 @@ class CharacteristicAdmin(SortableAdminBase, admin.ModelAdmin):
     )
 
 
+class DocumentValidityFilter(admin.SimpleListFilter):
+    title = "Срок действия"
+    parameter_name = "validity"
+
+    def lookups(self, request, model_admin):
+        return [
+            ("expired", "Просрочен"),
+            ("expiring", "Скоро истекает"),
+            ("valid", "Действует"),
+            ("perpetual", "Бессрочный"),
+            ("unknown", "Срок не указан"),
+        ]
+
+    def queryset(self, request, qs):
+        today = timezone.localdate()
+        soon = today + timedelta(days=Document.EXPIRY_SOON_DAYS)
+        return {
+            "expired": qs.filter(is_perpetual=False, valid_until__lt=today),
+            "expiring": qs.filter(is_perpetual=False, valid_until__gte=today, valid_until__lte=soon),
+            "valid": qs.filter(is_perpetual=False, valid_until__gt=soon),
+            "perpetual": qs.filter(is_perpetual=True),
+            "unknown": qs.filter(is_perpetual=False, valid_until__isnull=True),
+        }.get(self.value(), qs)
+
+
+class ProductDocumentInline(admin.TabularInline):
+    """Привязка товаров прямо со страницы документа (другая сторона M2M)."""
+    model = Product.documents.through
+    extra = 1
+    autocomplete_fields = ("product",)
+    verbose_name = "Связанный товар"
+    verbose_name_plural = "Связанные товары"
+
+
 @admin.register(Document)
 class DocumentAdmin(admin.ModelAdmin):
-    list_display = ("name", "number", "file")
-    search_fields = ("name", "number")
+    list_display = ("name", "doc_type", "number", "status_badge", "valid_until")
+    list_filter = ("doc_type", DocumentValidityFilter)
+    search_fields = ("name", "number", "issuing_authority")
+    inlines = [ProductDocumentInline]
+    fieldsets = (
+        (None, {"fields": ("name", "doc_type", "number", "issuing_authority", "file")}),
+        ("Срок действия", {
+            "fields": ("issued_date", "valid_until", "is_perpetual"),
+            "description": "Для бессрочного документа поставьте галочку «Бессрочный». "
+                           "Если срок неизвестен — оставьте «Действует до» пустым.",
+        }),
+    )
+
+    @admin.display(description="Статус")
+    def status_badge(self, obj):
+        colors = {
+            "perpetual": "#0A6E73", "valid": "#2E7D32", "expiring": "#B4541F",
+            "expired": "#C62828", "unknown": "#8A8A8A",
+        }
+        status = obj.status
+        label = Document.Status(status).label
+        days = obj.days_left
+        if status == Document.Status.EXPIRING and days is not None:
+            label = f"{label} ({days} дн.)"
+        elif status == Document.Status.EXPIRED and days is not None:
+            label = f"{label} ({-days} дн. назад)"
+        return format_html('<b style="color:{}">{}</b>', colors.get(status, "#8A8A8A"), label)
 
 
 # ---------------------------------------------------------------------------
