@@ -76,13 +76,14 @@ class CharacteristicOptionInline(SortableInlineAdminMixin, admin.TabularInline):
 
 @admin.register(Characteristic)
 class CharacteristicAdmin(SortableAdminBase, admin.ModelAdmin):
-    list_display = ("name", "code", "type", "unit", "is_global")
-    list_filter = ("type", "is_global", "categories")
+    list_display = ("name", "code", "type", "unit", "is_global", "show_to_customer")
+    list_editable = ("show_to_customer",)
+    list_filter = ("type", "is_global", "show_to_customer", "categories")
     search_fields = ("name", "code")
     filter_horizontal = ("categories",)
     inlines = [CharacteristicOptionInline]
     fieldsets = (
-        (None, {"fields": ("name", "code", "type", "unit", "is_global")}),
+        (None, {"fields": ("name", "code", "type", "unit", "is_global", "show_to_customer")}),
         ("Привязка к категориям (только для НЕ общих)", {"fields": ("categories",)}),
     )
 

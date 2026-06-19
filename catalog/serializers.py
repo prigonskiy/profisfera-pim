@@ -169,6 +169,8 @@ class ProductDetailSerializer(serializers.ModelSerializer):
         )
         for av in values:
             ch = av.characteristic
+            if not ch.show_to_customer:
+                continue  # служебные характеристики (напр. код 1С) не показываем покупателю
             items.append({
                 "code": ch.code,
                 "name": ch.name,

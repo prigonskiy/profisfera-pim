@@ -95,6 +95,12 @@ class Characteristic(models.Model):
         help_text="Показывать у всех товаров независимо от категории. Если выключено — "
                   "только у товаров категорий из списка ниже.",
     )
+    show_to_customer = models.BooleanField(
+        "Показывать покупателю",
+        default=True,
+        help_text="Снимите галочку для служебных характеристик (например, код 1С): "
+                  "они останутся в PIM, но не будут видны в витрине.",
+    )
     order = models.PositiveIntegerField("Порядок", default=0)
 
     class Meta:
@@ -159,7 +165,10 @@ class Document(models.Model):
 
     EXPIRY_SOON_DAYS = 30  # за сколько дней до конца считать «скоро истекает»
 
-    name = models.CharField("Название", max_length=255)
+    name = models.CharField(
+        "Название (внутреннее)", max_length=255, blank=True,
+        help_text="Для внутреннего поиска и идентификации в PIM. Покупателю не показывается.",
+    )
     doc_type = models.CharField(
         "Тип документа", max_length=32, choices=DocType.choices, default=DocType.OTHER
     )

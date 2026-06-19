@@ -249,3 +249,36 @@ class ThrottleConfigTests(TestCase):
         rates = api_settings.DEFAULT_THROTTLE_RATES
         self.assertTrue(rates.get("anon"))
         self.assertTrue(rates.get("user"))
+
+
+class CustomerVisibilityTests(TestCase):
+    """Что видит покупатель: служебные характеристики скрыты, имя документа необязательно."""
+
+    def setUp(self):
+        cache.clear()
+        self.cat = Category.objects.create(name="Материалы")
+        self.product = Product.objects.create(name="Товар", category=self.cat)
+
+    def test_hidden_characteristic_not_in_api(self):
+        visible = Characteristic.objects.create(
+            name="Цвет", code="color_vis", type=Characteristic.Type.TEXT,
+            is_global=True, show_to_customer=True,
+        )
+        hidden = Characteristic.objects.create(
+            name="Код 1С", code="code_1c", type=Characteristic.Type.TEXT,
+            is_global=True, show_to_customer=False,
+        )
+        ProductAttributeValue.objects.create(
+            product=self.product, characteristic=visible, value_text="белый")
+        ProductAttributeValue.objects.create(
+            product=self.product, characteristic=hidden, value_text="00-0001")
+
+        resp = APIClient().get(f"/api/products/{self.product.slug}/")
+        codes = [c["code"] for c in resp.data["characteristics"]]
+        self.assertIn("color_vis", codes)       # обычная — видна
+        self.assertNotIn("code_1c", codes)      # служебная — скрыта
+
+    def test_document_name_is_optional(self):
+        d = Document.objects.create(number="РЗН 2016/4080")  # без name
+        self.assertEqual(d.name, "")
+        self.assertTrue(Document.objects.filter(pk=d.pk).exists())
