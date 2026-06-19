@@ -21,3 +21,6 @@ venv/
 .vscode/
 .DS_Store
 Thumbs.db
+
+# Бэкапы БД, создаются на сервере при деплое
+backups/

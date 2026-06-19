@@ -13,7 +13,9 @@ pip install -r requirements-prod.txt
 echo "==> Бэкап БД перед миграциями"
 set -a; source .env 2>/dev/null || true; set +a
 if [ "${DB_ENGINE:-}" = "postgres" ]; then
-  BACKUP_DIR=/srv/pim-backups
+  # Папка для бэкапов: по умолчанию внутри проекта (её владелец — пользователь
+  # деплоя, sudo не нужен). Можно переопределить переменной BACKUP_DIR в .env.
+  BACKUP_DIR="${BACKUP_DIR:-$(pwd)/backups}"
   mkdir -p "$BACKUP_DIR"
   PGPASSWORD="${DB_PASSWORD:-}" pg_dump -Fc \
     -h "${DB_HOST:-127.0.0.1}" -p "${DB_PORT:-5432}" \
