@@ -16,6 +16,7 @@ from datetime import timedelta
 from io import BytesIO
 
 from django.contrib.auth.models import User
+from django.core.cache import cache
 from django.test import TestCase
 from django.utils import timezone
 from openpyxl import Workbook
@@ -79,6 +80,7 @@ class SkuTests(TestCase):
 
 class ApiPermissionTests(TestCase):
     def setUp(self):
+        cache.clear()  # сбросить историю троттлинга, чтобы тесты не влияли друг на друга
         self.cat = Category.objects.create(name="Материалы")
         self.product = Product.objects.create(name="Адгезив", category=self.cat)
         self.staff = User.objects.create_user("staff", password="x", is_staff=True)
@@ -227,3 +229,23 @@ class ExportRoundTripTests(TestCase):
         self.assertEqual(report["errors"], [])
         self.assertEqual(report["updated"], 1)
         self.assertEqual(report["created"], 0)
+
+
+class ThrottleConfigTests(TestCase):
+    """Троттлинг должен оставаться включённым в настройках API — защита от случайного удаления.
+
+    Живое срабатывание 429 здесь не воспроизводим (поведение троттла под тест-клиентом
+    DRF капризно и зависит от кэша/инстансов); проверяем сам факт настройки, а 429
+    подтверждается вручную, напр.:  for i in $(seq 1 400); do curl -s -o /dev/null -w "%{http_code}\\n" <API>/api/products/; done | sort | uniq -c
+    """
+
+    def test_throttle_classes_and_rates_configured(self):
+        from rest_framework.settings import api_settings
+        from rest_framework.throttling import AnonRateThrottle, UserRateThrottle
+
+        classes = list(api_settings.DEFAULT_THROTTLE_CLASSES)
+        self.assertIn(AnonRateThrottle, classes)
+        self.assertIn(UserRateThrottle, classes)
+        rates = api_settings.DEFAULT_THROTTLE_RATES
+        self.assertTrue(rates.get("anon"))
+        self.assertTrue(rates.get("user"))
