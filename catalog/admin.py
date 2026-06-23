@@ -3,8 +3,8 @@ from datetime import timedelta
 from adminsortable2.admin import SortableAdminBase, SortableAdminMixin, SortableInlineAdminMixin
 from django import forms
 from django.contrib import admin, messages
-from django.shortcuts import render
-from django.urls import path
+from django.shortcuts import redirect, render
+from django.urls import path, reverse
 from django.utils import timezone
 from django.utils.html import format_html
 from image_uploader_widget.admin import OrderedImageUploaderInline
@@ -17,6 +17,8 @@ from .catalog_io import (
     import_workbook,
     workbook_response,
 )
+
+from .storefront import trigger_rebuild
 
 from .models import (
     Audience,
@@ -329,6 +331,8 @@ class ProductAdmin(admin.ModelAdmin):
                  name="catalog_product_export"),
             path("import/", self.admin_site.admin_view(self.import_view),
                  name="catalog_product_import"),
+            path("rebuild/", self.admin_site.admin_view(self.rebuild_view),
+                 name="catalog_product_rebuild"),
         ]
         return custom + super().get_urls()
 
@@ -367,6 +371,17 @@ class ProductAdmin(admin.ModelAdmin):
             "opts": self.model._meta,
         }
         return render(request, "admin/catalog/product/export.html", ctx)
+
+    def rebuild_view(self, request):
+        # Только POST запускает пересборку (чтобы случайный переход/префетч
+        # ссылки не дёргал GitHub). GET — просто вернуться к списку.
+        if request.method == "POST":
+            ok, msg = trigger_rebuild()
+            self.message_user(
+                request, msg,
+                level=messages.SUCCESS if ok else messages.ERROR,
+            )
+        return redirect(reverse("admin:catalog_product_changelist"))
     base_fieldsets = (
         ("Основное", {
             "fields": ("sku", "name", "slug", "external_id", "gtin", "brand", "category", "manufacturer_sku"),
