@@ -5,6 +5,7 @@ from django import forms
 from django.contrib import admin, messages
 from django.contrib.admin.utils import quote
 from django.contrib.admin.views.main import ChangeList
+from django.contrib.admin.widgets import FilteredSelectMultiple
 from django.core.exceptions import ValidationError
 from django.shortcuts import redirect, render
 from django.urls import path, reverse
@@ -118,27 +119,67 @@ class DocumentValidityFilter(admin.SimpleListFilter):
         }.get(self.value(), qs)
 
 
-class ProductDocumentInline(admin.TabularInline):
-    """Привязка товаров прямо со страницы документа (другая сторона M2M)."""
-    model = Product.documents.through
-    extra = 1
-    autocomplete_fields = ("product",)
-    verbose_name = "Связанный товар"
-    verbose_name_plural = "Связанные товары"
+class DocumentAdminForm(forms.ModelForm):
+    """Привязка документа к товарам одним списком с поиском (вместо строк-инлайнов).
+
+    `products` — обратная сторона M2M (Product.documents), поэтому это
+    кастомное поле формы с тем же виджетом, что и filter_horizontal.
+    """
+    products = forms.ModelMultipleChoiceField(
+        label="Товары",
+        queryset=Product.objects.all().order_by("name"),
+        required=False,
+        widget=FilteredSelectMultiple("товары", is_stacked=False),
+        help_text="Найдите товары в левом списке и перенесите нужные направо. "
+                  "Перенесённые исчезают из доступных — повторно не выберутся.",
+    )
+
+    class Meta:
+        model = Document
+        fields = "__all__"
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if self.instance and self.instance.pk:
+            self.fields["products"].initial = self.instance.products.all()
+
+    def save(self, commit=True):
+        instance = super().save(commit)
+
+        def _persist():
+            instance.products.set(self.cleaned_data["products"])
+
+        if commit:
+            _persist()
+        else:
+            # админка сохраняет с commit=False, затем зовёт save_m2m()
+            base_save_m2m = self.save_m2m
+
+            def save_m2m():
+                base_save_m2m()
+                _persist()
+
+            self.save_m2m = save_m2m
+        return instance
 
 
 @admin.register(Document)
 class DocumentAdmin(admin.ModelAdmin):
+    form = DocumentAdminForm
     list_display = ("name", "doc_type", "number", "status_badge", "valid_until")
     list_filter = ("doc_type", DocumentValidityFilter)
     search_fields = ("name", "number", "issuing_authority")
-    inlines = [ProductDocumentInline]
     fieldsets = (
         (None, {"fields": ("name", "doc_type", "number", "issuing_authority", "file")}),
         ("Срок действия", {
             "fields": ("issued_date", "valid_until", "is_perpetual"),
             "description": "Для бессрочного документа поставьте галочку «Бессрочный». "
                            "Если срок неизвестен — оставьте «Действует до» пустым.",
+        }),
+        ("Товары", {
+            "fields": ("products",),
+            "description": "Документ будет привязан ко всем выбранным товарам. "
+                           "Список ищется и наполняется в один проход.",
         }),
     )
 

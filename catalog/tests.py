@@ -15,11 +15,13 @@
 from datetime import timedelta
 from io import BytesIO
 import os
+import tempfile
 from unittest import mock
 
 from django.contrib.auth.models import User
 from django.core.cache import cache
-from django.test import TestCase
+from django.core.files.uploadedfile import SimpleUploadedFile
+from django.test import TestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
 from openpyxl import Workbook
@@ -343,3 +345,41 @@ class AdminSkuUrlTests(TestCase):
         resp = self.client.get(reverse("admin:catalog_product_changelist"))
         self.assertEqual(resp.status_code, 200)
         self.assertContains(resp, f"/product/{self.product.sku}/change/")
+
+
+@override_settings(MEDIA_ROOT=tempfile.mkdtemp())
+class DocumentProductsWidgetTests(TestCase):
+    """Привязка документа к товарам одним списком (DocumentAdminForm)."""
+
+    def setUp(self):
+        self.cat = Category.objects.create(name="Материалы")
+        self.p1 = Product.objects.create(name="Композитная краска A2", category=self.cat)
+        self.p2 = Product.objects.create(name="Композитная краска A3", category=self.cat)
+
+    def test_initial_loads_existing_products(self):
+        from catalog.admin import DocumentAdminForm
+        doc = Document.objects.create(name="РУ")
+        doc.products.set([self.p1])
+        form = DocumentAdminForm(instance=doc)
+        self.assertIn(self.p1, list(form.fields["products"].initial))
+        self.assertNotIn(self.p2, list(form.fields["products"].initial))
+
+    def test_save_persists_selected_products(self):
+        from catalog.admin import DocumentAdminForm
+        pdf = SimpleUploadedFile("ru.pdf", b"%PDF-1.4 test", content_type="application/pdf")
+        form = DocumentAdminForm(
+            data={
+                "name": "РУ на серию",
+                "doc_type": Document.DocType.REGISTRATION,
+                "number": "",
+                "issuing_authority": "",
+                "products": [self.p1.pk, self.p2.pk],
+            },
+            files={"file": pdf},
+        )
+        self.assertTrue(form.is_valid(), form.errors)
+        doc = form.save()
+        self.assertEqual(
+            set(doc.products.values_list("pk", flat=True)),
+            {self.p1.pk, self.p2.pk},
+        )
