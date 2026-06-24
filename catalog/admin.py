@@ -109,13 +109,64 @@ class CategoryFilterInline(SortableInlineAdminMixin, admin.TabularInline):
         return super().get_formset(request, obj, **kwargs)
 
 
+class CategoryAdminForm(forms.ModelForm):
+    """Состав характеристик категории редактируется прямо здесь (обратная сторона
+    Characteristic.categories) — одним списком с поиском, как у документов."""
+    characteristics = forms.ModelMultipleChoiceField(
+        label="Характеристики категории",
+        queryset=Characteristic.objects.all().order_by("name"),
+        required=False,
+        widget=FilteredSelectMultiple("характеристики", is_stacked=False),
+        help_text="Характеристики, доступные товарам этой категории. Глобальные "
+                  "характеристики показываются у всех товаров независимо от этого списка.",
+    )
+
+    class Meta:
+        model = Category
+        fields = "__all__"
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if self.instance and self.instance.pk:
+            self.fields["characteristics"].initial = self.instance.characteristics.all()
+
+    def save(self, commit=True):
+        instance = super().save(commit)
+
+        def _persist():
+            instance.characteristics.set(self.cleaned_data["characteristics"])
+
+        if commit:
+            _persist()
+        else:
+            base_save_m2m = self.save_m2m
+
+            def save_m2m():
+                base_save_m2m()
+                _persist()
+
+            self.save_m2m = save_m2m
+        return instance
+
+
 @admin.register(Category)
 class CategoryAdmin(SortableAdminBase, admin.ModelAdmin):
+    form = CategoryAdminForm
     list_display = ("name", "parent")
     list_filter = ("parent",)
     search_fields = ("name",)
     autocomplete_fields = ("parent",)
     inlines = [CategoryFilterInline]
+    fieldsets = (
+        (None, {"fields": ("name", "slug", "parent")}),
+        ("Характеристики категории", {
+            "fields": ("characteristics",),
+            "description": "Какие характеристики доступны товарам этой категории. "
+                           "Ниже, в «Фильтрах витрины», из них (и из глобальных) "
+                           "настраиваются фильтры. Сначала сохраните набор характеристик, "
+                           "затем настраивайте по ним фильтры.",
+        }),
+    )
 
 
 class CharacteristicOptionInline(SortableInlineAdminMixin, admin.TabularInline):

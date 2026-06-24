@@ -448,3 +448,39 @@ class CategoryFilterTests(TestCase):
         self.assertEqual(by_code["paz"]["name"], "Размер паза")     # переопределённая подпись
         self.assertEqual(by_code["paz"]["unit"], "дюйм")
         self.assertEqual(sorted(by_code["system"]["options"]), ["MBT", "Roth"])
+
+
+class CategoryCharacteristicsWidgetTests(TestCase):
+    """Управление составом характеристик категории прямо со страницы категории."""
+
+    def setUp(self):
+        self.c1 = Characteristic.objects.create(name="Паз", code="paz", type=Characteristic.Type.NUMBER)
+        self.c2 = Characteristic.objects.create(name="Система", code="system", type=Characteristic.Type.SINGLE_SELECT)
+
+    def test_initial_loads_attached_characteristics(self):
+        from catalog.admin import CategoryAdminForm
+        cat = Category.objects.create(name="Брекеты")
+        cat.characteristics.add(self.c1)
+        form = CategoryAdminForm(instance=cat)
+        initial = list(form.fields["characteristics"].initial)
+        self.assertIn(self.c1, initial)
+        self.assertNotIn(self.c2, initial)
+
+    def test_save_attaches_selected_characteristics(self):
+        from catalog.admin import CategoryAdminForm
+        form = CategoryAdminForm(data={
+            "name": "Брекеты", "slug": "", "parent": "",
+            "characteristics": [self.c1.pk, self.c2.pk],
+        })
+        self.assertTrue(form.is_valid(), form.errors)
+        cat = form.save()
+        self.assertEqual(
+            set(cat.characteristics.values_list("pk", flat=True)),
+            {self.c1.pk, self.c2.pk},
+        )
+
+    def test_reverse_relation_consistent(self):
+        # привязка со стороны категории видна и со стороны характеристики
+        cat = Category.objects.create(name="Дуги")
+        cat.characteristics.set([self.c1])
+        self.assertIn(cat, self.c1.categories.all())
