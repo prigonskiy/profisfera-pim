@@ -59,6 +59,13 @@ class CategoryViewSet(viewsets.ModelViewSet):
         data = CategoryTreeSerializer(roots, many=True, context={"request": request}).data
         return Response(data)
 
+    @action(detail=True, methods=["get"])
+    def filters(self, request, slug=None):
+        """Эффективная конфигурация фильтров категории (свои + унаследованные)."""
+        category = self.get_object()
+        data = [f.to_config() for f in category.effective_filters()]
+        return Response(data)
+
 
 class CharacteristicViewSet(viewsets.ModelViewSet):
     queryset = Characteristic.objects.prefetch_related("options").all()

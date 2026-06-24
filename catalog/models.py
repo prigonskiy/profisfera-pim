@@ -57,6 +57,30 @@ class Category(models.Model):
             self.slug = unique_slugify(self, self.name)
         super().save(*args, **kwargs)
 
+    def ancestors_chain(self):
+        """Категории от себя вверх к корню (себя включая). Защита от циклов."""
+        chain, node, seen = [], self, set()
+        while node and node.pk not in seen:
+            seen.add(node.pk)
+            chain.append(node)
+            node = node.parent
+        return chain
+
+    def effective_filters(self):
+        """Эффективные фильтры категории: свои + унаследованные от родителей.
+
+        Потомок переопределяет предка по одной и той же характеристике
+        (берётся настройка ближайшей к потомку категории). Результат
+        упорядочен по (order, id).
+        """
+        by_char = {}
+        for cat in self.ancestors_chain():  # сначала сама категория, потом предки
+            for f in cat.filters.select_related("characteristic").all():
+                by_char.setdefault(f.characteristic_id, f)
+        chosen = list(by_char.values())
+        chosen.sort(key=lambda f: (f.order, f.id))
+        return chosen
+
 
 class Characteristic(models.Model):
     """Характеристика. Привязывается к категориям, имеет один из пяти типов."""
@@ -139,6 +163,91 @@ class CharacteristicOption(models.Model):
 
     def __str__(self):
         return f"{self.characteristic.name}: {self.value}"
+
+
+class CategoryFilter(models.Model):
+    """Настройка фильтра витрины: какую характеристику и как показывать в категории.
+
+    Наследуется вниз по дереву: эффективные фильтры категории = свои + от родителей
+    (потомок переопределяет предка по одной и той же характеристике). Текстовые
+    характеристики как фильтры не используются.
+    """
+
+    class Display(models.TextChoices):
+        BOOL_CHECKBOX = "bool_checkbox", "Булева: один чекбокс (= «Да»)"
+        BOOL_YESNO = "bool_yesno", "Булева: Да / Нет"
+        NUMBER_RANGE = "number_range", "Число: диапазон «от–до»"
+        NUMBER_BUCKETS = "number_buckets", "Число: корзины-чекбоксы"
+        SELECT_CHECKBOX = "select_checkbox", "Список: чекбоксы значений"
+
+    # Допустимые виды отображения для каждого типа характеристики.
+    DISPLAY_BY_TYPE = {
+        Characteristic.Type.BOOLEAN: {Display.BOOL_CHECKBOX, Display.BOOL_YESNO},
+        Characteristic.Type.NUMBER: {Display.NUMBER_RANGE, Display.NUMBER_BUCKETS},
+        Characteristic.Type.SINGLE_SELECT: {Display.SELECT_CHECKBOX},
+        Characteristic.Type.MULTI_SELECT: {Display.SELECT_CHECKBOX},
+    }
+
+    category = models.ForeignKey(
+        Category, verbose_name="Категория",
+        on_delete=models.CASCADE, related_name="filters",
+    )
+    characteristic = models.ForeignKey(
+        Characteristic, verbose_name="Характеристика",
+        on_delete=models.CASCADE, related_name="filter_configs",
+    )
+    display = models.CharField("Вид фильтра", max_length=32, choices=Display.choices)
+    order = models.PositiveIntegerField("Порядок", default=0)
+    config = models.JSONField(
+        "Доп. настройки", default=dict, blank=True,
+        help_text='Необязательно. Подпись: {"label": "Объём"}. '
+                  'Корзины для числа: {"buckets": [{"max": 20}, {"min": 20, "max": 40}, {"min": 40}]}.',
+    )
+
+    class Meta:
+        verbose_name = "Фильтр категории"
+        verbose_name_plural = "Фильтры категории"
+        ordering = ["order", "id"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["category", "characteristic"],
+                name="uniq_category_characteristic_filter",
+            )
+        ]
+
+    def __str__(self):
+        return f"{self.category}: {self.characteristic} ({self.get_display_display()})"
+
+    def clean(self):
+        from django.core.exceptions import ValidationError
+        if not self.characteristic_id:
+            return
+        allowed = self.DISPLAY_BY_TYPE.get(self.characteristic.type)
+        if not allowed:
+            raise ValidationError({
+                "characteristic": "Этот тип характеристики нельзя использовать как фильтр "
+                                  "(например, текстовый)."
+            })
+        if self.display and self.display not in allowed:
+            raise ValidationError({
+                "display": "Этот вид отображения недоступен для выбранного типа характеристики."
+            })
+
+    def to_config(self):
+        """Сериализация фильтра для витрины/API."""
+        ch = self.characteristic
+        data = {
+            "code": ch.code,
+            "name": self.config.get("label") or ch.name,
+            "type": ch.type,
+            "display": self.display,
+            "unit": ch.unit,
+        }
+        if ch.type in (Characteristic.Type.SINGLE_SELECT, Characteristic.Type.MULTI_SELECT):
+            data["options"] = list(ch.options.values_list("value", flat=True))
+        if self.display == self.Display.NUMBER_BUCKETS:
+            data["buckets"] = self.config.get("buckets", [])
+        return data
 
 
 class Document(models.Model):

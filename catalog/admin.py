@@ -7,6 +7,7 @@ from django.contrib.admin.utils import quote
 from django.contrib.admin.views.main import ChangeList
 from django.contrib.admin.widgets import FilteredSelectMultiple
 from django.core.exceptions import ValidationError
+from django.db.models import Q
 from django.shortcuts import redirect, render
 from django.urls import path, reverse
 from django.utils import timezone
@@ -28,6 +29,7 @@ from .models import (
     Audience,
     Brand,
     Category,
+    CategoryFilter,
     Characteristic,
     CharacteristicOption,
     Direction,
@@ -66,12 +68,36 @@ class BrandAdmin(admin.ModelAdmin):
     search_fields = ("name",)
 
 
+class CategoryFilterInline(SortableInlineAdminMixin, admin.TabularInline):
+    """Настройка фильтров витрины для категории (наследуется вниз по дереву)."""
+    model = CategoryFilter
+    extra = 0
+    fields = ("characteristic", "display", "config")
+    verbose_name = "Фильтр"
+    verbose_name_plural = "Фильтры витрины (наследуются вложенными категориями)"
+
+    def formfield_for_foreignkey(self, db_field, request, **kwargs):
+        if db_field.name == "characteristic":
+            qs = Characteristic.objects.exclude(type=Characteristic.Type.TEXT)
+            cat = getattr(self, "_parent_category", None)
+            if cat is not None:
+                qs = qs.filter(Q(is_global=True) | Q(categories=cat)).distinct()
+            kwargs["queryset"] = qs.order_by("name")
+        return super().formfield_for_foreignkey(db_field, request, **kwargs)
+
+    def get_formset(self, request, obj=None, **kwargs):
+        # запоминаем редактируемую категорию, чтобы ограничить список характеристик
+        self._parent_category = obj
+        return super().get_formset(request, obj, **kwargs)
+
+
 @admin.register(Category)
-class CategoryAdmin(admin.ModelAdmin):
+class CategoryAdmin(SortableAdminBase, admin.ModelAdmin):
     list_display = ("name", "parent")
     list_filter = ("parent",)
     search_fields = ("name",)
     autocomplete_fields = ("parent",)
+    inlines = [CategoryFilterInline]
 
 
 class CharacteristicOptionInline(SortableInlineAdminMixin, admin.TabularInline):

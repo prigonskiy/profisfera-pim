@@ -30,7 +30,9 @@ from rest_framework.test import APIClient
 from catalog import catalog_io
 from catalog.models import (
     Category,
+    CategoryFilter,
     Characteristic,
+    CharacteristicOption,
     Document,
     Product,
     ProductAttributeValue,
@@ -383,3 +385,66 @@ class DocumentProductsWidgetTests(TestCase):
             set(doc.products.values_list("pk", flat=True)),
             {self.p1.pk, self.p2.pk},
         )
+
+
+class CategoryFilterTests(TestCase):
+    """Категорийные фильтры: наследование, валидация типа→вида, эндпоинт конфига."""
+
+    def setUp(self):
+        cache.clear()
+        self.parent = Category.objects.create(name="Брекеты")
+        self.child = Category.objects.create(name="Металлические", parent=self.parent)
+        # числовая характеристика на родителе
+        self.paz = Characteristic.objects.create(name="Паз", code="paz", type=Characteristic.Type.NUMBER, unit="дюйм")
+        self.paz.categories.add(self.parent)
+        # select-характеристика на ребёнке
+        self.system = Characteristic.objects.create(name="Система", code="system", type=Characteristic.Type.SINGLE_SELECT)
+        self.system.categories.add(self.child)
+        CharacteristicOption.objects.create(characteristic=self.system, value="Roth")
+        CharacteristicOption.objects.create(characteristic=self.system, value="MBT")
+
+    def test_child_inherits_parent_filter(self):
+        CategoryFilter.objects.create(category=self.parent, characteristic=self.paz,
+                                      display=CategoryFilter.Display.NUMBER_RANGE)
+        CategoryFilter.objects.create(category=self.child, characteristic=self.system,
+                                      display=CategoryFilter.Display.SELECT_CHECKBOX)
+        codes = [f.characteristic.code for f in self.child.effective_filters()]
+        self.assertIn("paz", codes)      # унаследован от родителя
+        self.assertIn("system", codes)   # собственный
+
+    def test_child_overrides_parent_for_same_characteristic(self):
+        CategoryFilter.objects.create(category=self.parent, characteristic=self.paz,
+                                      display=CategoryFilter.Display.NUMBER_RANGE)
+        CategoryFilter.objects.create(category=self.child, characteristic=self.paz,
+                                      display=CategoryFilter.Display.NUMBER_BUCKETS)
+        eff = {f.characteristic.code: f.display for f in self.child.effective_filters()}
+        self.assertEqual(eff["paz"], CategoryFilter.Display.NUMBER_BUCKETS)
+
+    def test_clean_rejects_text_characteristic(self):
+        from django.core.exceptions import ValidationError
+        txt = Characteristic.objects.create(name="Заметка", code="note", type=Characteristic.Type.TEXT)
+        cf = CategoryFilter(category=self.parent, characteristic=txt,
+                            display=CategoryFilter.Display.SELECT_CHECKBOX)
+        with self.assertRaises(ValidationError):
+            cf.clean()
+
+    def test_clean_rejects_display_type_mismatch(self):
+        from django.core.exceptions import ValidationError
+        cf = CategoryFilter(category=self.parent, characteristic=self.paz,
+                            display=CategoryFilter.Display.SELECT_CHECKBOX)  # число + список = нельзя
+        with self.assertRaises(ValidationError):
+            cf.clean()
+
+    def test_filters_endpoint_returns_effective_config(self):
+        CategoryFilter.objects.create(category=self.parent, characteristic=self.paz,
+                                      display=CategoryFilter.Display.NUMBER_RANGE,
+                                      config={"label": "Размер паза"})
+        CategoryFilter.objects.create(category=self.child, characteristic=self.system,
+                                      display=CategoryFilter.Display.SELECT_CHECKBOX)
+        client = APIClient()
+        resp = client.get(f"/api/categories/{self.child.slug}/filters/")
+        self.assertEqual(resp.status_code, 200)
+        by_code = {f["code"]: f for f in resp.json()}
+        self.assertEqual(by_code["paz"]["name"], "Размер паза")     # переопределённая подпись
+        self.assertEqual(by_code["paz"]["unit"], "дюйм")
+        self.assertEqual(sorted(by_code["system"]["options"]), ["MBT", "Roth"])
