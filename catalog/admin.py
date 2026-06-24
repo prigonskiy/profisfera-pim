@@ -152,6 +152,7 @@ class CategoryAdminForm(forms.ModelForm):
 @admin.register(Category)
 class CategoryAdmin(SortableAdminBase, admin.ModelAdmin):
     form = CategoryAdminForm
+    change_list_template = "admin/catalog/category/change_list.html"
     list_display = ("name", "parent")
     list_filter = ("parent",)
     search_fields = ("name",)
@@ -167,6 +168,23 @@ class CategoryAdmin(SortableAdminBase, admin.ModelAdmin):
                            "затем настраивайте по ним фильтры.",
         }),
     )
+
+    def get_urls(self):
+        custom = [
+            path("rebuild/", self.admin_site.admin_view(self.rebuild_view),
+                 name="catalog_category_rebuild"),
+        ]
+        return custom + super().get_urls()
+
+    def rebuild_view(self, request):
+        # только POST запускает пересборку (см. ProductAdmin.rebuild_view)
+        if request.method == "POST":
+            ok, msg = trigger_rebuild()
+            self.message_user(
+                request, msg,
+                level=messages.SUCCESS if ok else messages.ERROR,
+            )
+        return redirect(reverse("admin:catalog_category_changelist"))
 
 
 class CharacteristicOptionInline(SortableInlineAdminMixin, admin.TabularInline):

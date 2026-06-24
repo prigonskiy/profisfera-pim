@@ -484,3 +484,14 @@ class CategoryCharacteristicsWidgetTests(TestCase):
         cat = Category.objects.create(name="Дуги")
         cat.characteristics.set([self.c1])
         self.assertIn(cat, self.c1.categories.all())
+
+
+class CategoryRebuildButtonTests(TestCase):
+    """Кнопка «Пересобрать витрину» на списке категорий доступна и не падает."""
+
+    def test_category_rebuild_endpoint_redirects(self):
+        User.objects.create_superuser("cat_rb", "c@example.com", "pw12345")
+        self.client.force_login(User.objects.get(username="cat_rb"))
+        with mock.patch.dict(os.environ, {"GITHUB_DISPATCH_TOKEN": "", "STOREFRONT_REPO": ""}):
+            resp = self.client.post("/admin/catalog/category/rebuild/")
+        self.assertEqual(resp.status_code, 302)  # редирект обратно на список категорий
