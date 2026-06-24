@@ -68,6 +68,20 @@ class BrandAdmin(admin.ModelAdmin):
     search_fields = ("name",)
 
 
+class CharacteristicSelectWithType(forms.Select):
+    """Select характеристик, добавляющий каждому <option> data-ftype с типом.
+
+    По нему JS в админке оставляет в списке «Вид фильтра» только подходящие виды.
+    """
+    def create_option(self, name, value, label, selected, index, subindex=None, attrs=None):
+        option = super().create_option(name, value, label, selected, index, subindex, attrs)
+        instance = getattr(value, "instance", None)
+        ftype = getattr(instance, "type", None)
+        if ftype:
+            option["attrs"]["data-ftype"] = ftype
+        return option
+
+
 class CategoryFilterInline(SortableInlineAdminMixin, admin.TabularInline):
     """Настройка фильтров витрины для категории (наследуется вниз по дереву)."""
     model = CategoryFilter
@@ -76,6 +90,9 @@ class CategoryFilterInline(SortableInlineAdminMixin, admin.TabularInline):
     verbose_name = "Фильтр"
     verbose_name_plural = "Фильтры витрины (наследуются вложенными категориями)"
 
+    class Media:
+        js = ("catalog/category_filter_admin.js",)
+
     def formfield_for_foreignkey(self, db_field, request, **kwargs):
         if db_field.name == "characteristic":
             qs = Characteristic.objects.exclude(type=Characteristic.Type.TEXT)
@@ -83,6 +100,7 @@ class CategoryFilterInline(SortableInlineAdminMixin, admin.TabularInline):
             if cat is not None:
                 qs = qs.filter(Q(is_global=True) | Q(categories=cat)).distinct()
             kwargs["queryset"] = qs.order_by("name")
+            kwargs["widget"] = CharacteristicSelectWithType()
         return super().formfield_for_foreignkey(db_field, request, **kwargs)
 
     def get_formset(self, request, obj=None, **kwargs):
