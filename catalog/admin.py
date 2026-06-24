@@ -3,6 +3,9 @@ from datetime import timedelta
 from adminsortable2.admin import SortableAdminBase, SortableAdminMixin, SortableInlineAdminMixin
 from django import forms
 from django.contrib import admin, messages
+from django.contrib.admin.utils import quote
+from django.contrib.admin.views.main import ChangeList
+from django.core.exceptions import ValidationError
 from django.shortcuts import redirect, render
 from django.urls import path, reverse
 from django.utils import timezone
@@ -301,6 +304,17 @@ class ProductGroupValueInline(admin.TabularInline):
     )
 
 
+class ProductChangeList(ChangeList):
+    """Список товаров: ссылки на карточку строятся по sku, а не по pk."""
+
+    def url_for_result(self, result):
+        return reverse(
+            "admin:%s_%s_change" % (self.opts.app_label, self.opts.model_name),
+            args=(quote(result.sku),),
+            current_app=self.model_admin.admin_site.name,
+        )
+
+
 @admin.register(Product)
 class ProductAdmin(admin.ModelAdmin):
     form = ProductAdminForm
@@ -313,6 +327,20 @@ class ProductAdmin(admin.ModelAdmin):
     inlines = [ProductImageInline, ProductGroupValueInline]
     change_list_template = "admin/catalog/product/change_list.html"
     actions = ["export_general", "export_full"]
+
+    # ---- Адресация карточки по sku (с откатом на pk для старых ссылок) ----
+    def get_changelist(self, request, **kwargs):
+        return ProductChangeList
+
+    def get_object(self, request, object_id, from_field=None):
+        # Сначала пытаемся по sku; если не нашли — стандартный поиск по pk
+        # (так прежние ссылки /…/<pk>/change/ продолжают работать).
+        if from_field is None:
+            try:
+                return self.get_queryset(request).get(sku=object_id)
+            except (self.model.DoesNotExist, ValueError, ValidationError):
+                pass
+        return super().get_object(request, object_id, from_field)
 
     # ---- Экспорт в Excel -------------------------------------------------
     @admin.action(description="Экспорт в Excel: базовые поля + общие характеристики")

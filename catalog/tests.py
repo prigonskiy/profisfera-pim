@@ -14,10 +14,13 @@
 """
 from datetime import timedelta
 from io import BytesIO
+import os
+from unittest import mock
 
 from django.contrib.auth.models import User
 from django.core.cache import cache
 from django.test import TestCase
+from django.urls import reverse
 from django.utils import timezone
 from openpyxl import Workbook
 from rest_framework.test import APIClient
@@ -282,3 +285,61 @@ class CustomerVisibilityTests(TestCase):
         d = Document.objects.create(number="РЗН 2016/4080")  # без name
         self.assertEqual(d.name, "")
         self.assertTrue(Document.objects.filter(pk=d.pk).exists())
+
+
+class StorefrontTriggerTests(TestCase):
+    """Триггер пересборки витрины: безопасные пути без обращения к сети."""
+
+    def test_not_configured_returns_error_without_network(self):
+        from catalog.storefront import trigger_rebuild
+        with mock.patch.dict(os.environ, {"GITHUB_DISPATCH_TOKEN": "", "STOREFRONT_REPO": ""}):
+            ok, msg = trigger_rebuild()
+        self.assertFalse(ok)
+        self.assertIn("не настроена", msg.lower())
+
+    def test_success_on_204(self):
+        from catalog import storefront
+
+        class _Resp:
+            def __enter__(self):
+                return self
+            def __exit__(self, *a):
+                return False
+            def getcode(self):
+                return 204
+
+        env = {
+            "GITHUB_DISPATCH_TOKEN": "dummy",
+            "STOREFRONT_REPO": "owner/repo",
+            "STOREFRONT_DISPATCH_EVENT": "rebuild",
+        }
+        with mock.patch.dict(os.environ, env), \
+             mock.patch.object(storefront.urllib.request, "urlopen", return_value=_Resp()):
+            ok, msg = storefront.trigger_rebuild()
+        self.assertTrue(ok)
+
+
+class AdminSkuUrlTests(TestCase):
+    """Адресация карточки товара в админке: URL по sku, старые pk-ссылки тоже живут."""
+
+    def setUp(self):
+        self.cat = Category.objects.create(name="Материалы")
+        self.product = Product.objects.create(name="Адгезив", category=self.cat)
+        User.objects.create_superuser("admin_url", "a@example.com", "pw12345")
+        self.client.force_login(User.objects.get(username="admin_url"))
+
+    def test_change_url_uses_sku(self):
+        url = reverse("admin:catalog_product_change", args=[self.product.sku])
+        self.assertIn(self.product.sku, url)
+        resp = self.client.get(url)
+        self.assertEqual(resp.status_code, 200)
+
+    def test_old_pk_url_still_works(self):
+        url = f"/admin/catalog/product/{self.product.pk}/change/"
+        resp = self.client.get(url)
+        self.assertEqual(resp.status_code, 200)
+
+    def test_changelist_links_point_to_sku(self):
+        resp = self.client.get(reverse("admin:catalog_product_changelist"))
+        self.assertEqual(resp.status_code, 200)
+        self.assertContains(resp, f"/product/{self.product.sku}/change/")
