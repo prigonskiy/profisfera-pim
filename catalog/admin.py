@@ -1,3 +1,4 @@
+import re
 from datetime import timedelta
 
 from adminsortable2.admin import SortableAdminBase, SortableAdminMixin, SortableInlineAdminMixin
@@ -7,6 +8,7 @@ from django.contrib.admin.utils import quote
 from django.contrib.admin.views.main import ChangeList
 from django.contrib.admin.widgets import FilteredSelectMultiple
 from django.core.exceptions import ValidationError
+from django.core.files.uploadedfile import UploadedFile
 from django.db.models import Q
 from django.shortcuts import redirect, render
 from django.urls import path, reverse
@@ -61,6 +63,27 @@ class BrandAdminForm(forms.ModelForm):
             # Описание бренда — визуальный HTML-редактор, как у полного описания товара.
             "description": TinyMCE(),
         }
+
+    def clean_logo(self):
+        """Разрешаем SVG как логотип, но отклоняем SVG со скриптами/обработчиками."""
+        f = self.cleaned_data.get("logo")
+        name = (getattr(f, "name", "") or "").lower()
+        if isinstance(f, UploadedFile) and name.endswith(".svg"):
+            try:
+                f.seek(0)
+                raw = f.read(100000)
+                f.seek(0)
+            except Exception:
+                raw = b""
+            text = raw.decode("utf-8", "ignore") if isinstance(raw, bytes) else str(raw)
+            low = text.lower()
+            if ("<script" in low or "javascript:" in low or "<foreignobject" in low
+                    or re.search(r"\son\w+\s*=", low)):
+                raise forms.ValidationError(
+                    "SVG содержит потенциально небезопасное содержимое (скрипты или "
+                    "обработчики событий). Загрузите «чистый» логотип."
+                )
+        return f
 
 
 @admin.register(Brand)

@@ -12,7 +12,13 @@ class Brand(models.Model):
     """Бренд (производитель)."""
     name = models.CharField("Название", max_length=255)
     slug = models.SlugField("Slug", unique=True, max_length=255, blank=True, help_text=SLUG_HELP)
-    logo = models.ImageField("Логотип", upload_to="brands/", blank=True, null=True)
+    logo = models.FileField(
+        "Логотип", upload_to="brands/", blank=True, null=True,
+        validators=[FileExtensionValidator(
+            allowed_extensions=["svg", "png", "jpg", "jpeg", "webp", "gif"]
+        )],
+        help_text="Растровое изображение или SVG. Для логотипов предпочтителен SVG — он чёткий на любом размере.",
+    )
     description = models.TextField("Описание", blank=True)
 
     class Meta:

@@ -522,3 +522,29 @@ class ServerMetricsTests(TestCase):
         self.assertEqual(resp.status_code, 200)
         self.assertEqual(resp["Content-Type"], "application/json")
         self.assertIn("available", resp.json())
+
+
+class BrandLogoSvgTests(TestCase):
+    """Логотип бренда принимает SVG (поле FileField), но не «грязный» SVG и не чужие расширения."""
+
+    CLEAN_SVG = b'<svg xmlns="http://www.w3.org/2000/svg" width="10" height="10"><rect width="10" height="10"/></svg>'
+    SCRIPT_SVG = b'<svg xmlns="http://www.w3.org/2000/svg"><script>alert(1)</script></svg>'
+
+    def _form(self, filename, content):
+        from catalog.admin import BrandAdminForm
+        upload = SimpleUploadedFile(filename, content, content_type="image/svg+xml")
+        return BrandAdminForm(data={"name": "Acme", "slug": "", "description": ""},
+                              files={"logo": upload})
+
+    def test_accepts_clean_svg(self):
+        self.assertTrue(self._form("logo.svg", self.CLEAN_SVG).is_valid())
+
+    def test_rejects_svg_with_script(self):
+        form = self._form("logo.svg", self.SCRIPT_SVG)
+        self.assertFalse(form.is_valid())
+        self.assertIn("logo", form.errors)
+
+    def test_rejects_disallowed_extension(self):
+        form = self._form("logo.txt", b"hello")
+        self.assertFalse(form.is_valid())
+        self.assertIn("logo", form.errors)
