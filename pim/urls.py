@@ -5,6 +5,7 @@ from django.urls import include, path
 from django.views.generic import RedirectView
 from rest_framework.routers import DefaultRouter
 
+from catalog.admin_metrics import server_metrics
 from catalog.api import (
     AudienceViewSet,
     BrandViewSet,
@@ -26,6 +27,8 @@ router.register("directions", DirectionViewSet, basename="direction")
 
 urlpatterns = [
     path("admin/", admin.site.urls),
+    # staff-only метрики сервера для панели на главной админки
+    path("server-metrics/", admin.site.admin_view(server_metrics), name="server_metrics"),
     path("api/", include(router.urls)),
     path("api-auth/", include("rest_framework.urls")),  # вход/выход в браузерном API
     path("", RedirectView.as_view(url="/api/", permanent=False)),
