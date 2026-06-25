@@ -18,12 +18,21 @@ def server_metrics(request):
 
     data = {"available": True}
 
-    # процессор: короткий блокирующий замер — стабильнее на multi-worker gunicorn
+    # процессор: утилизация по load average, нормированному на число ядер.
+    # Стабильнее короткого мгновенного замера (тот на VPS шумит/завышен из-за
+    # виртуализации и блокирует воркер), системная и одинаковая для всех воркеров.
+    cores = psutil.cpu_count() or 1
+    data["cpu_count"] = cores
     try:
-        data["cpu_percent"] = psutil.cpu_percent(interval=0.3)
-        data["cpu_count"] = psutil.cpu_count()
-    except Exception:
-        pass
+        la = os.getloadavg()  # средняя нагрузка за 1 / 5 / 15 минут (Unix)
+        data["load_avg"] = [round(x, 2) for x in la]
+        data["cpu_percent"] = round(min(la[0] / cores * 100, 100), 1)
+    except (OSError, AttributeError):
+        # getloadavg недоступен (например, Windows) — мгновенный замер как запасной
+        try:
+            data["cpu_percent"] = psutil.cpu_percent(interval=0.3)
+        except Exception:
+            pass
 
     # оперативная память
     try:
@@ -39,12 +48,6 @@ def server_metrics(request):
         du = psutil.disk_usage(path)
         data["disk"] = {"percent": du.percent, "used": du.used, "total": du.total, "path": path}
     except Exception:
-        pass
-
-    # load average (системный, не зависит от воркеров) — только Unix
-    try:
-        data["load_avg"] = [round(x, 2) for x in os.getloadavg()]
-    except (OSError, AttributeError):
         pass
 
     return JsonResponse(data)
