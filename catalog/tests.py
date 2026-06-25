@@ -495,3 +495,14 @@ class CategoryRebuildButtonTests(TestCase):
         with mock.patch.dict(os.environ, {"GITHUB_DISPATCH_TOKEN": "", "STOREFRONT_REPO": ""}):
             resp = self.client.post("/admin/catalog/category/rebuild/")
         self.assertEqual(resp.status_code, 302)  # редирект обратно на список категорий
+
+
+class CharacteristicSortableAdminTests(TestCase):
+    """Список характеристик стал перетаскиваемым (SortableAdminMixin) — страница грузится."""
+
+    def test_characteristic_changelist_loads(self):
+        Characteristic.objects.create(name="Цвет", code="color", type=Characteristic.Type.SINGLE_SELECT)
+        User.objects.create_superuser("char_adm", "ch@example.com", "pw12345")
+        self.client.force_login(User.objects.get(username="char_adm"))
+        resp = self.client.get("/admin/catalog/characteristic/")
+        self.assertEqual(resp.status_code, 200)

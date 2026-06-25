@@ -86,7 +86,7 @@ class CategoryFilterInline(SortableInlineAdminMixin, admin.TabularInline):
     """Настройка фильтров витрины для категории (наследуется вниз по дереву)."""
     model = CategoryFilter
     extra = 0
-    fields = ("characteristic", "display", "config")
+    fields = ("characteristic", "display", "config", "order")
     verbose_name = "Фильтр"
     verbose_name_plural = "Фильтры витрины (наследуются вложенными категориями)"
 
@@ -194,7 +194,7 @@ class CharacteristicOptionInline(SortableInlineAdminMixin, admin.TabularInline):
 
 
 @admin.register(Characteristic)
-class CharacteristicAdmin(SortableAdminBase, admin.ModelAdmin):
+class CharacteristicAdmin(SortableAdminMixin, admin.ModelAdmin):
     list_display = ("name", "code", "type", "unit", "is_global", "show_to_customer")
     list_editable = ("show_to_customer",)
     list_filter = ("type", "is_global", "show_to_customer", "categories")
