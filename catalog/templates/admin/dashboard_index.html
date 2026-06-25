@@ -1,0 +1,57 @@
+{% extends "admin/index.html" %}
+{% comment %}Панель метрик сервера над списком приложений на главной админки.{% endcomment %}
+{% block content %}
+<div class="module" id="srv-metrics" style="margin-bottom:18px">
+  <h2>Сервер</h2>
+  <div id="srv-metrics-body" style="padding:10px 14px">Загрузка метрик…</div>
+</div>
+<script>
+(function () {
+  var url = "{% url 'server_metrics' %}";
+  var body = document.getElementById("srv-metrics-body");
+
+  function fmt(bytes) {
+    if (bytes == null) return "—";
+    var u = ["Б", "КБ", "МБ", "ГБ", "ТБ"], i = 0, n = bytes;
+    while (n >= 1024 && i < u.length - 1) { n /= 1024; i++; }
+    return n.toFixed(n < 10 && i > 0 ? 1 : 0) + " " + u[i];
+  }
+  function bar(pct) {
+    var c = pct >= 90 ? "#dc3545" : (pct >= 70 ? "#f0801a" : "#28a745");
+    return '<div style="background:#e9ecef;border-radius:6px;height:8px;max-width:340px;overflow:hidden">' +
+           '<div style="height:8px;width:' + Math.min(pct, 100) + '%;background:' + c + '"></div></div>';
+  }
+  function row(label, pct, sub) {
+    return '<div style="margin:10px 0">' +
+      '<div style="display:flex;justify-content:space-between;max-width:340px;font-size:13px">' +
+      '<span>' + label + '</span><span>' + (pct != null ? pct.toFixed(0) + "%" : "") + '</span></div>' +
+      (pct != null ? bar(pct) : "") +
+      (sub ? '<div style="font-size:12px;color:#888;margin-top:3px">' + sub + '</div>' : "") +
+      '</div>';
+  }
+  function render(d) {
+    if (!d || !d.available) {
+      body.innerHTML = '<span style="color:#dc3545">' + ((d && d.error) || "Метрики недоступны") + '</span>';
+      return;
+    }
+    var html = "";
+    if (d.cpu_percent != null) {
+      var sub = d.load_avg ? ("load avg: " + d.load_avg.join(" / ") + (d.cpu_count ? (" · ядер: " + d.cpu_count) : "")) : "";
+      html += row("Процессор", d.cpu_percent, sub);
+    }
+    if (d.mem) html += row("Память", d.mem.percent, fmt(d.mem.used) + " из " + fmt(d.mem.total));
+    if (d.disk) html += row("Диск (" + d.disk.path + ")", d.disk.percent, fmt(d.disk.used) + " из " + fmt(d.disk.total));
+    body.innerHTML = html || "нет данных";
+  }
+  function tick() {
+    fetch(url, { headers: { Accept: "application/json" } })
+      .then(function (r) { return r.json(); })
+      .then(render)
+      .catch(function () { body.innerHTML = '<span style="color:#888">метрики временно недоступны</span>'; });
+  }
+  tick();
+  setInterval(function () { if (!document.hidden) tick(); }, 5000);
+})();
+</script>
+{{ block.super }}
+{% endblock %}

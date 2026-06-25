@@ -46,6 +46,8 @@ from .models import (
 admin.site.site_header = "ProfiSfera PIM"
 admin.site.site_title = "ProfiSfera PIM"
 admin.site.index_title = "Управление каталогом"
+# главная админки с панелью метрик сервера (шаблон расширяет штатный admin/index.html)
+admin.site.index_template = "admin/dashboard_index.html"
 
 
 # ---------------------------------------------------------------------------
