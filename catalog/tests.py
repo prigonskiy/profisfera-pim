@@ -512,13 +512,13 @@ class ServerMetricsTests(TestCase):
     """Панель метрик: эндпоинт только для персонала и отдаёт корректный JSON."""
 
     def test_metrics_requires_staff(self):
-        resp = self.client.get("/admin/server-metrics/")
+        resp = self.client.get("/server-metrics/")
         self.assertEqual(resp.status_code, 302)  # аноним -> редирект на логин админки
 
     def test_metrics_returns_json_for_staff(self):
         User.objects.create_superuser("metrics_adm", "m@example.com", "pw12345")
         self.client.force_login(User.objects.get(username="metrics_adm"))
-        resp = self.client.get("/admin/server-metrics/")
+        resp = self.client.get("/server-metrics/")
         self.assertEqual(resp.status_code, 200)
         self.assertEqual(resp["Content-Type"], "application/json")
         self.assertIn("available", resp.json())

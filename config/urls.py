@@ -26,9 +26,10 @@ router.register("audiences", AudienceViewSet, basename="audience")
 router.register("directions", DirectionViewSet, basename="direction")
 
 urlpatterns = [
-    # staff-only метрики сервера для панели на главной админки (до admin/)
-    path("admin/server-metrics/", admin.site.admin_view(server_metrics), name="server_metrics"),
     path("admin/", admin.site.urls),
+    # staff-only метрики сервера для панели на главной админки.
+    # Вне префикса /admin/ — иначе его перехватывает встроенный admin/<app_label>/.
+    path("server-metrics/", admin.site.admin_view(server_metrics), name="server_metrics"),
     path("api/", include(router.urls)),
     path("api-auth/", include("rest_framework.urls")),  # вход/выход в браузерном API
     path("", RedirectView.as_view(url="/api/", permanent=False)),
