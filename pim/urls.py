@@ -6,6 +6,7 @@ from django.views.generic import RedirectView
 from rest_framework.routers import DefaultRouter
 
 from catalog.admin_metrics import server_metrics
+from catalog.tinymce_upload import tinymce_upload
 from catalog.api import (
     AudienceViewSet,
     BrandViewSet,
@@ -29,6 +30,8 @@ urlpatterns = [
     path("admin/", admin.site.urls),
     # staff-only метрики сервера для панели на главной админки
     path("server-metrics/", admin.site.admin_view(server_metrics), name="server_metrics"),
+    # загрузка изображений из TinyMCE (staff-only, проверка внутри view)
+    path("tinymce/upload/", tinymce_upload, name="tinymce_upload"),
     path("api/", include(router.urls)),
     path("api-auth/", include("rest_framework.urls")),  # вход/выход в браузерном API
     path("", RedirectView.as_view(url="/api/", permanent=False)),

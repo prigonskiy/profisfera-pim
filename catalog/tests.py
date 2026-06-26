@@ -548,3 +548,46 @@ class BrandLogoSvgTests(TestCase):
         form = self._form("logo.txt", b"hello")
         self.assertFalse(form.is_valid())
         self.assertIn("logo", form.errors)
+
+
+@override_settings(MEDIA_ROOT=tempfile.mkdtemp())
+class TinymceUploadTests(TestCase):
+    """Загрузка изображений из TinyMCE: staff грузит картинку, остальное отклоняется."""
+
+    @classmethod
+    def setUpTestData(cls):
+        cls.staff = User.objects.create_user("ed", "e@e.com", "pw", is_staff=True)
+
+    def _png(self, name="кар тинка.png"):
+        from PIL import Image
+        buf = BytesIO()
+        Image.new("RGB", (2, 2), "red").save(buf, "PNG")
+        return SimpleUploadedFile(name, buf.getvalue(), content_type="image/png")
+
+    def test_anonymous_blocked(self):
+        r = self.client.post(reverse("tinymce_upload"), {"file": self._png()})
+        self.assertIn(r.status_code, (302, 403))
+
+    def test_staff_uploads_png(self):
+        self.client.force_login(self.staff)
+        r = self.client.post(reverse("tinymce_upload"), {"file": self._png()})
+        self.assertEqual(r.status_code, 200)
+        loc = r.json().get("location", "")
+        self.assertTrue(loc.startswith("http"))
+        self.assertIn("/media/uploads/tinymce/", loc)
+
+    def test_rejects_non_image(self):
+        self.client.force_login(self.staff)
+        bad = SimpleUploadedFile("a.txt", b"hello", content_type="text/plain")
+        r = self.client.post(reverse("tinymce_upload"), {"file": bad})
+        self.assertEqual(r.status_code, 400)
+
+    def test_rejects_script_svg(self):
+        self.client.force_login(self.staff)
+        svg = SimpleUploadedFile(
+            "x.svg",
+            b"<svg xmlns='http://www.w3.org/2000/svg'><script>alert(1)</script></svg>",
+            content_type="image/svg+xml",
+        )
+        r = self.client.post(reverse("tinymce_upload"), {"file": svg})
+        self.assertEqual(r.status_code, 400)
