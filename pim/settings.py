@@ -89,6 +89,13 @@ TINYMCE_DEFAULT_CONFIG = {
                "link image table | code fullscreen | removeformat",
     "promotion": False,
     "branding": False,
+    # загрузка изображений прямо в media PIM (а не только по внешней ссылке)
+    "images_upload_url": "/tinymce/upload/",
+    "automatic_uploads": True,
+    "images_upload_credentials": True,   # слать cookie сессии вместе с загрузкой
+    "paste_data_images": True,           # картинки из буфера обмена тоже загружаются
+    "convert_urls": False,               # не переписывать абсолютные URL картинок
+    "relative_urls": False,
 }
 
 # Django REST Framework: публичное чтение, запись по токену для staff
