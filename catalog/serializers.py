@@ -119,8 +119,8 @@ class ProductListSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Product
-        fields = ("id", "sku", "external_id", "name", "slug", "short_description", "brand", "category",
-                  "audiences", "directions", "thumbnail")
+        fields = ("id", "sku", "manufacturer_sku", "external_id", "name", "slug", "short_description",
+                  "brand", "category", "audiences", "directions", "thumbnail")
 
     def get_thumbnail(self, obj):
         first = obj.images.all().first()
