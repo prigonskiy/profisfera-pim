@@ -55,7 +55,7 @@ class CategoryViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=["get"])
     def tree(self, request):
         """Дерево категорий от корней (parent is null) с вложенностью."""
-        roots = Category.objects.filter(parent__isnull=True)
+        roots = Category.objects.root_nodes()
         data = CategoryTreeSerializer(roots, many=True, context={"request": request}).data
         return Response(data)
 

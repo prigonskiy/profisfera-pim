@@ -1,5 +1,6 @@
 from django.core.validators import FileExtensionValidator
 from django.db import models, transaction
+from mptt.models import MPTTModel, TreeForeignKey
 from django.utils import timezone
 from django_countries.fields import CountryField
 
@@ -35,11 +36,11 @@ class Brand(models.Model):
         super().save(*args, **kwargs)
 
 
-class Category(models.Model):
-    """Категория каталога. Вложенность через ссылку на саму себя (parent)."""
+class Category(MPTTModel):
+    """Категория каталога. Дерево через ссылку на себя (parent); порядок хранит MPTT."""
     name = models.CharField("Название", max_length=255)
     slug = models.SlugField("Slug", unique=True, max_length=255, blank=True, help_text=SLUG_HELP)
-    parent = models.ForeignKey(
+    parent = TreeForeignKey(
         "self",
         verbose_name="Родительская категория",
         on_delete=models.CASCADE,
@@ -51,7 +52,7 @@ class Category(models.Model):
     class Meta:
         verbose_name = "Категория"
         verbose_name_plural = "Категории"
-        ordering = ["name"]
+        # ordering не задаём: порядок узлов хранит дерево MPTT (перетаскивание в админке)
 
     def __str__(self):
         if self.parent_id:

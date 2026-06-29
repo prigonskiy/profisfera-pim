@@ -2,6 +2,7 @@ import re
 from datetime import timedelta
 
 from adminsortable2.admin import SortableAdminBase, SortableAdminMixin, SortableInlineAdminMixin
+from mptt.admin import DraggableMPTTAdmin
 from django import forms
 from django.contrib import admin, messages
 from django.contrib.admin.utils import quote
@@ -175,11 +176,12 @@ class CategoryAdminForm(forms.ModelForm):
 
 
 @admin.register(Category)
-class CategoryAdmin(SortableAdminBase, admin.ModelAdmin):
+class CategoryAdmin(DraggableMPTTAdmin, SortableAdminBase):
     form = CategoryAdminForm
     change_list_template = "admin/catalog/category/change_list.html"
-    list_display = ("name", "parent")
-    list_filter = ("parent",)
+    list_display = ("tree_actions", "indented_title")
+    list_display_links = ("indented_title",)
+    mptt_level_indent = 22
     search_fields = ("name",)
     autocomplete_fields = ("parent",)
     inlines = [CategoryFilterInline]

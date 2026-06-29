@@ -69,6 +69,7 @@ INSTALLED_APPS = [
     'rest_framework',            # REST API
     'rest_framework.authtoken',  # токены для записи
     'adminsortable2',   # drag-and-drop сортировка в админке
+    'mptt',             # дерево категорий (вложенность + перетаскивание)
     'tinymce',          # визуальный HTML-редактор
     'image_uploader_widget',  # пакетная загрузка/превью/сортировка изображений
     'django_countries',  # справочник стран для поля «страна производства»

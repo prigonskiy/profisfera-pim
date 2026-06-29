@@ -38,7 +38,7 @@ class CategoryTreeSerializer(serializers.ModelSerializer):
         fields = ("id", "name", "slug", "children")
 
     def get_children(self, obj):
-        return CategoryTreeSerializer(obj.children.all(), many=True, context=self.context).data
+        return CategoryTreeSerializer(obj.get_children(), many=True, context=self.context).data
 
 
 class CharacteristicOptionSerializer(serializers.ModelSerializer):
