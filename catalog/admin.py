@@ -222,16 +222,26 @@ class CharacteristicOptionInline(SortableInlineAdminMixin, admin.TabularInline):
 
 @admin.register(Characteristic)
 class CharacteristicAdmin(SortableAdminMixin, admin.ModelAdmin):
-    list_display = ("name", "code", "type", "unit", "is_global", "show_to_customer")
+    list_display = ("name", "admin_label", "code", "type", "unit",
+                    "is_global", "show_to_customer", "categories_col")
     list_editable = ("show_to_customer",)
     list_filter = ("type", "is_global", "show_to_customer", "categories")
-    search_fields = ("name", "code")
+    search_fields = ("name", "code", "admin_label")
     filter_horizontal = ("categories",)
     inlines = [CharacteristicOptionInline]
     fieldsets = (
-        (None, {"fields": ("name", "code", "type", "unit", "is_global", "show_to_customer")}),
+        (None, {"fields": ("name", "admin_label", "code", "type", "unit",
+                           "is_global", "show_to_customer")}),
         ("Привязка к категориям (только для НЕ общих)", {"fields": ("categories",)}),
     )
+
+    def get_queryset(self, request):
+        return super().get_queryset(request).prefetch_related("categories")
+
+    @admin.display(description="Категории")
+    def categories_col(self, obj):
+        cats = list(obj.categories.all())
+        return ", ".join(c.name for c in cats) if cats else ("общая" if obj.is_global else "—")
 
 
 class DocumentValidityFilter(admin.SimpleListFilter):

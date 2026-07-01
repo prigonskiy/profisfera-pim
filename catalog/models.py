@@ -107,6 +107,14 @@ class Characteristic(models.Model):
         blank=True,
         help_text="Машинный код для API. Оставьте пустым — сгенерируется из названия.",
     )
+    admin_label = models.CharField(
+        "Внутреннее пояснение",
+        max_length=255,
+        blank=True,
+        help_text="Служебная пометка, видна только в админке (покупатель её не видит). "
+                  "Различать одноимённые характеристики, напр. «Серия» для хирургии "
+                  "и «Серия» для терапии.",
+    )
     type = models.CharField("Тип", max_length=20, choices=Type.choices)
     unit = models.CharField(
         "Единица измерения",
@@ -140,7 +148,7 @@ class Characteristic(models.Model):
         ordering = ["order", "name"]
 
     def __str__(self):
-        return self.name
+        return f"{self.name} · {self.admin_label}" if self.admin_label else self.name
 
     @property
     def is_select(self):
