@@ -38,10 +38,8 @@ from .models import (
     Direction,
     Document,
     GroupLevel,
-    GroupLevelValue,
     Product,
     ProductGroup,
-    ProductGroupValue,
     ProductImage,
     ProductAttributeValue,
 )
@@ -378,25 +376,18 @@ class DirectionAdmin(admin.ModelAdmin):
 # ---------------------------------------------------------------------------
 # Группировка вариантов (серии, уровни, значения уровней)
 # ---------------------------------------------------------------------------
-class GroupLevelValueInline(SortableInlineAdminMixin, admin.TabularInline):
-    model = GroupLevelValue
-    extra = 1
-    fields = ("value", "order")
-
-
 @admin.register(GroupLevel)
 class GroupLevelAdmin(SortableAdminBase, admin.ModelAdmin):
     list_display = ("name", "group", "order")
     list_filter = ("group",)
     search_fields = ("name",)
-    inlines = [GroupLevelValueInline]
 
 
 class GroupLevelInline(SortableInlineAdminMixin, admin.TabularInline):
     model = GroupLevel
     extra = 1
     fields = ("name", "order")
-    show_change_link = True  # перейти на уровень, чтобы добавить его значения
+    show_change_link = True
 
 
 @admin.register(ProductGroup)
@@ -449,6 +440,16 @@ class ProductAdminForm(forms.ModelForm):
             "full_description": TinyMCE(),
         }
 
+    def clean(self):
+        cleaned = super().clean()
+        group = cleaned.get("group")
+        level = cleaned.get("group_level")
+        if level and not group:
+            self.add_error("group_level", "Сначала выберите серию.")
+        elif level and group and level.group_id != group.id:
+            self.add_error("group_level", "Уровень должен принадлежать выбранной серии.")
+        return cleaned
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         instance = self.instance
@@ -484,17 +485,6 @@ class ProductImageInline(OrderedImageUploaderInline):
     order_field = "order"
 
 
-class ProductGroupValueInline(admin.TabularInline):
-    """Значения товара по уровням его серии (для переключателя вариантов)."""
-    model = ProductGroupValue
-    extra = 0
-    fields = ("level", "value")
-    verbose_name = "значение по уровню серии"
-    verbose_name_plural = (
-        "Значения по уровням серии (выбирайте уровень и значение одной и той же серии)"
-    )
-
-
 class ProductChangeList(ChangeList):
     """Список товаров: ссылки на карточку строятся по sku, а не по pk."""
 
@@ -515,7 +505,7 @@ class ProductAdmin(admin.ModelAdmin):
     readonly_fields = ("sku",)
     autocomplete_fields = ("category", "brand", "group")
     filter_horizontal = ("documents", "audiences", "directions")
-    inlines = [ProductImageInline, ProductGroupValueInline]
+    inlines = [ProductImageInline]
     change_list_template = "admin/catalog/product/change_list.html"
     actions = ["export_general", "export_full"]
 
@@ -628,11 +618,11 @@ class ProductAdmin(admin.ModelAdmin):
             "fields": ("documents",),
         }),
         ("Группировка вариантов", {
-            "fields": ("group", "group_order", "variant_label"),
+            "fields": ("group", "group_level", "group_order", "variant_label"),
             "description": (
-                "Серия объединяет карточки в переключатель. Значения по уровням "
-                "серии (напр. «Комплектность») задаются ниже, в блоке «Значения по "
-                "уровням серии»."
+                "Серия объединяет карточки в переключатель вариантов. Уровень — "
+                "раздел переключателя (напр. «Наборы» / «Отдельные шприцы»), он "
+                "должен принадлежать выбранной серии. Подпись — текст на кнопке варианта."
             ),
         }),
     )

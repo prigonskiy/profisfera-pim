@@ -195,13 +195,12 @@ class ProductDetailSerializer(serializers.ModelSerializer):
         request = self.context.get("request")
 
         levels = list(grp.levels.all())  # упорядочены полем order
-        siblings = grp.products.prefetch_related(
-            "images", "group_values__level", "group_values__value"
+        siblings = grp.products.select_related("group_level").prefetch_related(
+            "images"
         ).order_by("group_order", "name")
 
         variants = []
         for p in siblings:
-            level_values = {gv.level.name: gv.value.value for gv in p.group_values.all()}
             first = p.images.all().first()
             thumbnail = None
             if first:
@@ -212,7 +211,7 @@ class ProductDetailSerializer(serializers.ModelSerializer):
                 "label": p.variant_label or p.name,
                 "thumbnail": thumbnail,
                 "is_current": p.pk == obj.pk,
-                "levels": level_values,
+                "level": p.group_level.name if p.group_level_id else None,
             })
 
         return {

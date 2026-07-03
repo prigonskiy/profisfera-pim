@@ -393,29 +393,6 @@ class GroupLevel(models.Model):
         return f"{self.group.name}: {self.name}"
 
 
-class GroupLevelValue(models.Model):
-    """Допустимое значение уровня группировки, напр. «Одиночный», «Набор»."""
-    level = models.ForeignKey(
-        GroupLevel,
-        verbose_name="Уровень",
-        on_delete=models.CASCADE,
-        related_name="values",
-    )
-    value = models.CharField("Значение", max_length=255)
-    order = models.PositiveIntegerField("Порядок", default=0)
-
-    class Meta:
-        verbose_name = "Значение уровня"
-        verbose_name_plural = "Значения уровней"
-        ordering = ["order", "value"]
-        constraints = [
-            models.UniqueConstraint(fields=["level", "value"], name="uniq_level_value"),
-        ]
-
-    def __str__(self):
-        return f"{self.level.name}: {self.value}"
-
-
 class Audience(models.Model):
     """
     Аудитория (для кого товар): врач-стоматолог, зубной техник, общая медицина,
@@ -612,6 +589,15 @@ class Product(models.Model):
         blank=True,
         null=True,
     )
+    group_level = models.ForeignKey(
+        GroupLevel,
+        verbose_name="Уровень в серии",
+        on_delete=models.SET_NULL,
+        related_name="products",
+        blank=True,
+        null=True,
+        help_text="Раздел переключателя, в котором показывается этот вариант. Должен принадлежать выбранной серии.",
+    )
     group_order = models.PositiveIntegerField(
         "Порядок в серии",
         default=0,
@@ -747,58 +733,3 @@ class ProductAttributeValue(models.Model):
         if t == Characteristic.Type.MULTI_SELECT:
             return [o.value for o in self.value_options.all()]
         return None
-
-
-class ProductGroupValue(models.Model):
-    """
-    Значение товара на конкретном уровне группировки (однозначное).
-    На каждый (товар, уровень) — ровно одна запись (уникальность ниже).
-    """
-    product = models.ForeignKey(
-        Product,
-        verbose_name="Товар",
-        on_delete=models.CASCADE,
-        related_name="group_values",
-    )
-    level = models.ForeignKey(
-        GroupLevel,
-        verbose_name="Уровень",
-        on_delete=models.CASCADE,
-        related_name="product_values",
-    )
-    value = models.ForeignKey(
-        GroupLevelValue,
-        verbose_name="Значение",
-        on_delete=models.CASCADE,
-        related_name="product_values",
-    )
-
-    class Meta:
-        verbose_name = "Значение группировки товара"
-        verbose_name_plural = "Значения группировки товара"
-        constraints = [
-            models.UniqueConstraint(
-                fields=["product", "level"],
-                name="uniq_product_group_level",
-            )
-        ]
-
-    def __str__(self):
-        return f"{self.product} — {self.level.name}: {self.value.value}"
-
-    def clean(self):
-        # значение должно принадлежать выбранному уровню, а уровень — серии товара
-        from django.core.exceptions import ValidationError
-
-        errors = {}
-        if self.value_id and self.level_id and self.value.level_id != self.level_id:
-            errors["value"] = "Значение не относится к выбранному уровню."
-        if (
-            self.level_id
-            and self.product_id
-            and self.product.group_id
-            and self.level.group_id != self.product.group_id
-        ):
-            errors["level"] = "Уровень относится к другой серии, не к серии этого товара."
-        if errors:
-            raise ValidationError(errors)
