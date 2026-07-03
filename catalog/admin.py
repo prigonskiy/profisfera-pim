@@ -43,6 +43,7 @@ from .models import (
     ProductImage,
     ProductAttributeValue,
 )
+from .group_editor import GroupEditorAdminMixin
 
 admin.site.site_header = "ProfiSfera PIM"
 admin.site.site_title = "ProfiSfera PIM"
@@ -391,8 +392,8 @@ class GroupLevelInline(SortableInlineAdminMixin, admin.TabularInline):
 
 
 @admin.register(ProductGroup)
-class ProductGroupAdmin(SortableAdminBase, admin.ModelAdmin):
-    list_display = ("name", "slug")
+class ProductGroupAdmin(GroupEditorAdminMixin, SortableAdminBase, admin.ModelAdmin):
+    list_display = ("name", "slug", "editor_link")
     search_fields = ("name",)
     inlines = [GroupLevelInline]
 
@@ -502,7 +503,7 @@ class ProductAdmin(admin.ModelAdmin):
     list_display = ("sku", "name", "category", "brand", "group", "manufacturer_sku", "external_id", "updated_at")
     list_filter = ("category", "brand", "group", "country_of_origin", "audiences", "directions")
     search_fields = ("name", "manufacturer_sku", "external_id", "gtin", "sku")
-    readonly_fields = ("sku",)
+    readonly_fields = ("sku", "group_editor_link")
     autocomplete_fields = ("category", "brand", "group")
     filter_horizontal = ("documents", "audiences", "directions")
     inlines = [ProductImageInline]
@@ -618,7 +619,7 @@ class ProductAdmin(admin.ModelAdmin):
             "fields": ("documents",),
         }),
         ("Группировка вариантов", {
-            "fields": ("group", "group_level", "group_order", "variant_label"),
+            "fields": ("group", "group_editor_link", "group_level", "group_order", "variant_label"),
             "description": (
                 "Серия объединяет карточки в переключатель вариантов. Уровень — "
                 "раздел переключателя (напр. «Наборы» / «Отдельные шприцы»), он "
@@ -626,6 +627,13 @@ class ProductAdmin(admin.ModelAdmin):
             ),
         }),
     )
+
+    @admin.display(description="Редактор группировки")
+    def group_editor_link(self, obj):
+        if obj and obj.pk and obj.group_id:
+            url = reverse("admin:catalog_productgroup_editor", args=[obj.group_id])
+            return format_html('<a class="button" href="{}">Открыть редактор серии</a>', url)
+        return "— выберите серию и сохраните товар, затем настраивайте её в редакторе"
 
     def _global_characteristics(self):
         """Общие характеристики — показываются у любого товара."""

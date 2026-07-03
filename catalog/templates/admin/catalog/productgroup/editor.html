@@ -1,0 +1,21 @@
+{% extends "admin/base_site.html" %}
+{% load static %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block breadcrumbs %}
+<div class="breadcrumbs">
+  <a href="{% url 'admin:index' %}">Главная</a>
+  &rsaquo; <a href="{% url 'admin:app_list' app_label=opts.app_label %}">{{ opts.app_config.verbose_name }}</a>
+  &rsaquo; <a href="{% url 'admin:catalog_productgroup_changelist' %}">Серии</a>
+  &rsaquo; <a href="{% url 'admin:catalog_productgroup_change' group.pk %}">{{ group.name }}</a>
+  &rsaquo; Редактор
+</div>
+{% endblock %}
+
+{% block content %}
+{% csrf_token %}
+<div id="group-editor" data-base="{{ request.path }}">Загрузка редактора…</div>
+<link rel="stylesheet" href="{% static 'catalog/group_editor.css' %}">
+<script src="{% static 'catalog/group_editor.js' %}" defer></script>
+{% endblock %}
