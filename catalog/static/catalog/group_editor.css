@@ -67,11 +67,16 @@ tr.ge-dragging, li.ge-dragging { opacity: .55; background: var(--selected-bg, rg
 .ge-results { position: absolute; left: 0; right: 0; z-index: 20; margin-top: 3px;
   background: var(--body-bg); border: 1px solid var(--border-color); border-radius: 6px;
   max-height: 280px; overflow-y: auto; }
-.ge-results button { display: block; width: 100%; text-align: left; border: 0; background: none;
-  color: var(--body-fg); padding: 8px 10px; cursor: pointer; }
-.ge-results button:hover:not([disabled]) { background: var(--primary); color: var(--primary-fg, #fff); }
-.ge-results button[disabled] { color: var(--body-quiet-color); cursor: default; }
+.ge-result { display: flex; align-items: center; gap: 9px; padding: 8px 10px; cursor: pointer; color: var(--body-fg); }
+.ge-result:hover { background: var(--selected-bg, rgba(128,128,128,.12)); }
+.ge-result input { flex: none; margin: 0; }
+.ge-rname { flex: 1; }
+.ge-noresult { padding: 10px; color: var(--body-quiet-color); }
 .ge-rsku { font-size: 12px; opacity: .8; }
+.ge-selbar { display: flex; align-items: center; gap: 12px; margin-top: 10px; }
+.ge-selcount { font-size: 13px; color: var(--body-fg); }
+.ge-linkbtn { background: none; border: 0; color: var(--link-fg, var(--primary)); cursor: pointer; font-size: 13px; padding: 0; }
+.ge-linkbtn:hover { text-decoration: underline; }
 
 /* пустой раздел — видимая зона для перетаскивания */
 tr.ge-ph td.ge-empty { border: 1px dashed var(--border-color); border-radius: 6px;

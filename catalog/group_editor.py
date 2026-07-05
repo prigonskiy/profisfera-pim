@@ -118,7 +118,7 @@ class GroupEditorAdminMixin:
         qs = Product.objects.filter(group__isnull=True)
         if q:
             qs = qs.filter(Q(name__icontains=q) | Q(manufacturer_sku__icontains=q) | Q(sku__icontains=q))
-        qs = qs.order_by("name")[:20]
+        qs = qs.order_by("name")[:50]
         return JsonResponse({"results": [
             {"id": p.pk, "name": p.name, "sku": p.manufacturer_sku or ""} for p in qs
         ]})
@@ -168,12 +168,26 @@ class GroupEditorAdminMixin:
         action = data.get("action")
 
         if action == "add":
-            p = get_object_or_404(Product, pk=data.get("product_id"))
-            if p.group_id and p.group_id != group.pk:
-                return JsonResponse({"error": "Товар уже состоит в другой серии."}, status=400)
-            p.group = group
-            p.save(update_fields=["group"])
-            return JsonResponse({"ok": True, "member": _member_dict(p)})
+            ids = data.get("product_ids")
+            if ids is None and data.get("product_id") is not None:
+                ids = [data.get("product_id")]
+            ids = [i for i in (ids or []) if i]
+            added, skipped = 0, 0
+            with transaction.atomic():
+                for pid in ids:
+                    try:
+                        p = Product.objects.get(pk=pid)
+                    except Product.DoesNotExist:
+                        continue
+                    if p.group_id == group.pk:
+                        continue  # уже в этой серии
+                    if p.group_id:
+                        skipped += 1  # в другой серии — не трогаем
+                        continue
+                    p.group = group
+                    p.save(update_fields=["group"])
+                    added += 1
+            return JsonResponse({"ok": True, "added": added, "skipped": skipped})
 
         if action == "remove":
             p = get_object_or_404(Product, pk=data.get("product_id"), group=group)

@@ -58,11 +58,18 @@
 
   var state = { group: {}, levels: [], members: [] };
   var dirty = false;
+  var selected = {};   // id -> name; выбранные для добавления (копится между поисками)
+  var resultsEl = null;
 
   function markDirty() {
     dirty = true;
     var b = document.getElementById("ge-save"); if (b) b.disabled = false;
     var d = document.getElementById("ge-dirty"); if (d) d.textContent = "есть несохранённые изменения";
+  }
+  function selectedCount() { return Object.keys(selected).length; }
+  function updateSelBar() {
+    var bar = document.getElementById("ge-selbar"); if (bar) bar.hidden = selectedCount() === 0;
+    var c = document.getElementById("ge-selcount"); if (c) c.textContent = "Выбрано: " + selectedCount();
   }
 
   // ---------- разметка ----------
@@ -116,8 +123,13 @@
 
       '<div class="ge-card"><h2>Участники (по разделам)</h2>' +
         '<div class="ge-hint">Перетаскивайте товары за \u28ff: внутри раздела — порядок, между разделами — смена уровня. Подпись — текст на кнопке варианта.</div>' +
-        '<div class="ge-addbox"><div class="ge-hint">Добавить товар (ищутся только те, что не состоят ни в одной серии):</div>' +
+        '<div class="ge-addbox"><div class="ge-hint">Добавить товары (ищутся только те, что не состоят ни в одной серии). Отметьте нужные галочками и нажмите «Добавить выбранные».</div>' +
           '<div class="ge-search"><input type="text" id="ge-search" placeholder="Поиск по названию или артикулу…" autocomplete="off"><div class="ge-results" hidden></div></div>' +
+          '<div class="ge-selbar" id="ge-selbar"' + (selectedCount() ? "" : " hidden") + ">" +
+            '<span class="ge-selcount" id="ge-selcount">Выбрано: ' + selectedCount() + "</span>" +
+            '<button type="button" class="button default" id="ge-add-selected">Добавить выбранные</button>' +
+            '<button type="button" class="ge-linkbtn" id="ge-clear-sel">сбросить</button>' +
+          "</div>" +
         "</div>" +
         sections +
       "</div>";
@@ -261,28 +273,47 @@
     });
 
     var search = document.getElementById("ge-search");
-    var resultsEl = root.querySelector(".ge-results");
+    resultsEl = root.querySelector(".ge-results");
     var doSearch = debounce(function () {
       var q = search.value.trim();
       if (q.length < 2) { resultsEl.hidden = true; resultsEl.innerHTML = ""; return; }
       api("search/?q=" + encodeURIComponent(q)).then(function (d) {
-        if (!d.results.length) resultsEl.innerHTML = '<button type="button" disabled>Ничего не найдено</button>';
-        else resultsEl.innerHTML = d.results.map(function (r) {
-          return '<button type="button" data-id="' + r.id + '">' + esc(r.name) +
-            (r.sku ? ' <span class="ge-rsku">' + esc(r.sku) + "</span>" : "") + "</button>";
-        }).join("");
+        if (!d.results.length) {
+          resultsEl.innerHTML = '<div class="ge-noresult">Ничего не найдено</div>';
+        } else {
+          resultsEl.innerHTML = d.results.map(function (r) {
+            var checked = selected[r.id] ? " checked" : "";
+            return '<label class="ge-result" data-id="' + r.id + '"><input type="checkbox"' + checked + ">" +
+              '<span class="ge-rname">' + esc(r.name) + "</span>" +
+              (r.sku ? '<span class="ge-rsku">' + esc(r.sku) + "</span>" : "") + "</label>";
+          }).join("");
+        }
         resultsEl.hidden = false;
       }).catch(function (e) { status(e.message, false); });
     }, 300);
     search.addEventListener("input", doSearch);
-    resultsEl.addEventListener("click", function (e) {
-      var btn = e.target.closest("button[data-id]");
-      if (!btn) return;
-      structural(function () { return api("member/", { method: "POST", body: { action: "add", product_id: parseInt(btn.getAttribute("data-id"), 10) } }); })
-        .then(function () { status("Добавлено", true); });
+    resultsEl.addEventListener("change", function (e) {
+      var lab = e.target.closest(".ge-result"); if (!lab) return;
+      var id = parseInt(lab.getAttribute("data-id"), 10);
+      if (e.target.checked) selected[id] = lab.querySelector(".ge-rname").textContent;
+      else delete selected[id];
+      updateSelBar();
     });
-    document.addEventListener("click", function (e) {
-      if (resultsEl && !e.target.closest(".ge-search")) resultsEl.hidden = true;
+    document.getElementById("ge-add-selected").addEventListener("click", function () {
+      var ids = Object.keys(selected).map(Number);
+      if (!ids.length) return;
+      var pre = dirty ? commit() : Promise.resolve();
+      pre.then(function () { return api("member/", { method: "POST", body: { action: "add", product_ids: ids } }); })
+        .then(function (res) {
+          selected = {};
+          status("Добавлено: " + (res.added || 0) + (res.skipped ? (", пропущено: " + res.skipped) : ""), true);
+          return loadState();
+        })
+        .catch(function (e) { status(e.message, false); });
+    });
+    document.getElementById("ge-clear-sel").addEventListener("click", function () {
+      selected = {}; updateSelBar();
+      if (resultsEl) resultsEl.querySelectorAll('input[type="checkbox"]').forEach(function (cb) { cb.checked = false; });
     });
 
     setupLevelsDnD();
@@ -292,6 +323,9 @@
   // сброс draggable у прерванных перетаскиваний + предупреждение об уходе
   document.addEventListener("mouseup", function () {
     root.querySelectorAll('[draggable="true"]').forEach(function (el) { el.setAttribute("draggable", "false"); });
+  });
+  document.addEventListener("click", function (e) {
+    if (resultsEl && !e.target.closest(".ge-search")) resultsEl.hidden = true;
   });
   window.addEventListener("beforeunload", function (e) {
     if (dirty) { e.preventDefault(); e.returnValue = ""; }
