@@ -1,11 +1,12 @@
 """Редактор группировки вариантов «в одном окне» (Этап 2).
 
 Подключается к ProductGroupAdmin миксином GroupEditorAdminMixin: добавляет
-страницу-редактор и набор JSON-эндпоинтов под адресами админки. Всё — только
-для staff (обёрнуто в admin_site.admin_view), запись через POST с CSRF.
+страницу-редактор и JSON-эндпоинты под адресами админки. Всё — только для staff
+(admin_view), запись через POST с CSRF. Корневой urls.py не трогаем.
 
-Никаких правок корневого urls.py не требуется: маршруты живут внутри админки
-модели ProductGroup (…/admin/catalog/productgroup/<pk>/editor/…).
+Модель сохранения: параметры (имя серии, имена/порядок уровней, подпись/уровень/
+порядок участников) сохраняются одним запросом save/ по кнопке. Структурные
+действия (добавить/убрать товар, добавить/удалить уровень) — отдельные запросы.
 """
 import json
 
@@ -42,6 +43,13 @@ def _body(request):
         return {}
 
 
+def _to_int(value, default=0):
+    try:
+        return max(0, int(value))
+    except (TypeError, ValueError):
+        return default
+
+
 class GroupEditorAdminMixin:
     """Добавляет ProductGroupAdmin страницу-редактор группировки (одно окно, AJAX)."""
 
@@ -54,8 +62,8 @@ class GroupEditorAdminMixin:
                  name="%s_%s_editor_state" % info),
             path("<int:pk>/editor/search/", self.admin_site.admin_view(self.editor_search),
                  name="%s_%s_editor_search" % info),
-            path("<int:pk>/editor/rename/", self.admin_site.admin_view(self.editor_rename),
-                 name="%s_%s_editor_rename" % info),
+            path("<int:pk>/editor/save/", self.admin_site.admin_view(self.editor_save),
+                 name="%s_%s_editor_save" % info),
             path("<int:pk>/editor/member/", self.admin_site.admin_view(self.editor_member),
                  name="%s_%s_editor_member" % info),
             path("<int:pk>/editor/level/", self.admin_site.admin_view(self.editor_level),
@@ -63,7 +71,6 @@ class GroupEditorAdminMixin:
         ]
         return mine + super().get_urls()
 
-    # ссылка «Открыть редактор» для списка серий
     @admin.display(description="Редактор")
     def editor_link(self, obj):
         if not obj.pk:
@@ -104,7 +111,7 @@ class GroupEditorAdminMixin:
             "members": members,
         })
 
-    # ---------- поиск товаров для добавления (не состоящих ни в одной серии) ----------
+    # ---------- поиск товаров для добавления (не в одной серии) ----------
     def editor_search(self, request, pk):
         self._group(pk)
         q = (request.GET.get("q") or "").strip()
@@ -116,19 +123,43 @@ class GroupEditorAdminMixin:
             {"id": p.pk, "name": p.name, "sku": p.manufacturer_sku or ""} for p in qs
         ]})
 
-    # ---------- переименование серии ----------
-    def editor_rename(self, request, pk):
+    # ---------- сохранение всех параметров разом (по кнопке) ----------
+    def editor_save(self, request, pk):
         if request.method != "POST":
             return HttpResponseBadRequest("POST only")
         group = self._group(pk)
-        name = (_body(request).get("name") or "").strip()
-        if not name:
-            return JsonResponse({"error": "Имя не может быть пустым."}, status=400)
-        group.name = name[:255]
-        group.save(update_fields=["name"])
-        return JsonResponse({"ok": True, "name": group.name})
+        data = _body(request)
+        with transaction.atomic():
+            name = (data.get("name") or "").strip()
+            if name:
+                group.name = name[:255]
+                group.save(update_fields=["name"])
 
-    # ---------- участники: add / remove / update ----------
+            for lv in data.get("levels", []):
+                try:
+                    obj = group.levels.get(pk=lv.get("id"))
+                except GroupLevel.DoesNotExist:
+                    continue
+                nm = (lv.get("name") or "").strip()
+                if nm:
+                    obj.name = nm[:255]
+                obj.order = _to_int(lv.get("order"), obj.order)
+                obj.save(update_fields=["name", "order"])
+
+            level_ids = set(group.levels.values_list("id", flat=True))
+            for mm in data.get("members", []):
+                try:
+                    p = group.products.get(pk=mm.get("id"))
+                except Product.DoesNotExist:
+                    continue
+                p.variant_label = (mm.get("variant_label") or "")[:255]
+                p.group_order = _to_int(mm.get("group_order"), p.group_order)
+                gl = mm.get("group_level")
+                p.group_level_id = gl if gl in level_ids else None
+                p.save(update_fields=["variant_label", "group_order", "group_level"])
+        return JsonResponse({"ok": True})
+
+    # ---------- участники: add / remove (структурные) ----------
     def editor_member(self, request, pk):
         if request.method != "POST":
             return HttpResponseBadRequest("POST only")
@@ -151,33 +182,9 @@ class GroupEditorAdminMixin:
             p.save(update_fields=["group", "group_level"])
             return JsonResponse({"ok": True})
 
-        if action == "update":
-            p = get_object_or_404(Product, pk=data.get("product_id"), group=group)
-            fields = []
-            if "variant_label" in data:
-                p.variant_label = (data.get("variant_label") or "")[:255]
-                fields.append("variant_label")
-            if "group_order" in data:
-                try:
-                    p.group_order = max(0, int(data.get("group_order") or 0))
-                    fields.append("group_order")
-                except (TypeError, ValueError):
-                    pass
-            if "group_level" in data:
-                lvl_id = data.get("group_level")
-                if lvl_id in (None, "", 0, "0"):
-                    p.group_level = None
-                else:
-                    # уровень обязан принадлежать этой же серии
-                    p.group_level = get_object_or_404(GroupLevel, pk=lvl_id, group=group)
-                fields.append("group_level")
-            if fields:
-                p.save(update_fields=fields)
-            return JsonResponse({"ok": True, "member": _member_dict(p)})
-
         return HttpResponseBadRequest("unknown action")
 
-    # ---------- уровни: add / update / delete ----------
+    # ---------- уровни: add / delete (структурные) ----------
     def editor_level(self, request, pk):
         if request.method != "POST":
             return HttpResponseBadRequest("POST only")
@@ -190,24 +197,6 @@ class GroupEditorAdminMixin:
             last = group.levels.order_by("-order").first()
             order = (last.order + 1) if last else 0
             lvl = GroupLevel.objects.create(group=group, name=name[:255], order=order)
-            return JsonResponse({"ok": True, "level": _level_dict(lvl)})
-
-        if action == "update":
-            lvl = get_object_or_404(GroupLevel, pk=data.get("level_id"), group=group)
-            fields = []
-            if "name" in data:
-                name = (data.get("name") or "").strip()
-                if name:
-                    lvl.name = name[:255]
-                    fields.append("name")
-            if "order" in data:
-                try:
-                    lvl.order = max(0, int(data.get("order") or 0))
-                    fields.append("order")
-                except (TypeError, ValueError):
-                    pass
-            if fields:
-                lvl.save(update_fields=fields)
             return JsonResponse({"ok": True, "level": _level_dict(lvl)})
 
         if action == "delete":

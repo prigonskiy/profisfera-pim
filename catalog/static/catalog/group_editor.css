@@ -1,40 +1,71 @@
-#group-editor { max-width: 1000px; }
-.ge-status { position: fixed; top: 10px; right: 14px; z-index: 100; padding: 6px 12px;
-  border-radius: 6px; font-size: 12px; opacity: 0; transition: opacity .2s; pointer-events: none; }
+/* Редактор группировки. Цвета — через переменные темы админки Django,
+   поэтому редактор одинаково корректен и в тёмной, и в светлой теме. */
+#group-editor { max-width: 1040px; color: var(--body-fg); }
+
+/* всплывающий статус сохранения */
+.ge-status { position: fixed; top: 12px; right: 16px; z-index: 1000; padding: 7px 13px;
+  border-radius: 6px; font-size: 12px; border: 1px solid var(--border-color);
+  opacity: 0; transition: opacity .2s; pointer-events: none; }
 .ge-status.show { opacity: 1; }
-.ge-status.ok { background: #dff0d8; color: #2f6f2f; }
-.ge-status.err { background: #f2dede; color: #a94442; }
+.ge-status.ok { background: var(--message-success-bg, #dfd); color: var(--body-fg); }
+.ge-status.err { background: var(--message-error-bg, #fdd); color: var(--error-fg, #ba2121); }
 
-.ge-card { background: #fff; border: 1px solid var(--border-color, #e0e0e0); border-radius: 8px;
+/* панель сохранения */
+.ge-savebar { position: sticky; top: 0; z-index: 5; display: flex; align-items: center; gap: 14px;
+  padding: 10px 0; margin-bottom: 6px; background: var(--body-bg); border-bottom: 1px solid var(--border-color); }
+.ge-dirty { color: var(--body-quiet-color); font-size: 12px; }
+
+/* карточки-секции */
+.ge-card { background: var(--darkened-bg); border: 1px solid var(--border-color); border-radius: 8px;
   padding: 16px 18px; margin: 0 0 18px; }
-.ge-card h2 { margin: 0 0 12px; font-size: 15px; }
-.ge-hint { color: var(--body-quiet-color, #666); font-size: 12px; margin: 2px 0 12px; }
+.ge-card > h2 { margin: 0 0 10px; font-size: 15px; color: var(--body-fg); }
+.ge-hint { color: var(--body-quiet-color); font-size: 12px; margin: 2px 0 12px; }
 
-.ge-row { display: flex; align-items: center; gap: 10px; }
-.ge-namebox input { font-size: 15px; padding: 7px 9px; width: 100%; max-width: 460px; }
+/* поля ввода — явно по теме (иначе на тёмном фоне подсвечивались светлыми) */
+#group-editor input[type="text"],
+#group-editor input[type="number"],
+#group-editor select {
+  background: var(--body-bg); color: var(--body-fg);
+  border: 1px solid var(--border-color); border-radius: 4px;
+  padding: 6px 8px; box-sizing: border-box; }
+#group-editor input:focus, #group-editor select:focus { border-color: var(--body-quiet-color); outline: none; }
 
-table.ge-table { width: 100%; border-collapse: collapse; }
-.ge-table th, .ge-table td { text-align: left; padding: 7px 8px; border-bottom: 1px solid #eee; vertical-align: middle; }
-.ge-table th { font-size: 12px; color: var(--body-quiet-color, #666); font-weight: 600; }
-.ge-table input[type="text"], .ge-table input[type="number"], .ge-table select { padding: 5px 7px; width: 100%; box-sizing: border-box; }
-.ge-table td.ge-num { width: 90px; }
-.ge-table td.ge-lvl { width: 220px; }
-.ge-pname { font-weight: 600; }
-.ge-psku { color: var(--body-quiet-color, #888); font-size: 12px; }
-.ge-del { color: #a94442; background: none; border: 0; cursor: pointer; font-size: 13px; }
-.ge-del:hover { text-decoration: underline; }
-.ge-empty { color: var(--body-quiet-color, #888); padding: 10px 2px; }
+.ge-namebox input { font-size: 15px; width: 100%; max-width: 480px; }
 
-.ge-search { position: relative; max-width: 460px; }
-.ge-search input { width: 100%; box-sizing: border-box; padding: 7px 9px; }
-.ge-results { position: absolute; left: 0; right: 0; z-index: 20; background: #fff;
-  border: 1px solid #ccc; border-radius: 6px; margin-top: 3px; max-height: 260px; overflow-y: auto; }
-.ge-results button { display: block; width: 100%; text-align: left; border: 0; background: none;
-  padding: 8px 10px; cursor: pointer; }
-.ge-results button:hover { background: var(--primary, #e7f0ff); color: #fff; }
-.ge-results .ge-rsku { font-size: 12px; opacity: .8; }
-
+/* уровни */
 .ge-levels-list { list-style: none; margin: 0 0 12px; padding: 0; }
-.ge-levels-list li { display: flex; align-items: center; gap: 10px; padding: 6px 0; border-bottom: 1px solid #f0f0f0; }
-.ge-levels-list input.ge-lname { flex: 1; max-width: 380px; padding: 5px 7px; }
-.ge-levels-list input.ge-lorder { width: 80px; padding: 5px 7px; }
+.ge-levels-list li { display: flex; align-items: center; gap: 10px; padding: 6px 0;
+  border-bottom: 1px solid var(--hairline-color); }
+.ge-levels-list input.ge-lname { flex: 1; max-width: 420px; }
+.ge-levels-list input.ge-lorder { width: 84px; }
+
+/* участники по разделам */
+.ge-lgroup { margin: 0 0 16px; }
+.ge-section-title { font-size: 13px; margin: 4px 0 6px; padding: 5px 9px; border-radius: 5px;
+  background: var(--selected-bg, rgba(0,0,0,.06)); color: var(--body-loud-color, var(--body-fg)); }
+table.ge-table { width: 100%; border-collapse: collapse; }
+.ge-table th, .ge-table td { text-align: left; padding: 7px 8px;
+  border-bottom: 1px solid var(--hairline-color); vertical-align: middle; }
+.ge-table th { font-size: 12px; color: var(--body-quiet-color); font-weight: 600; }
+.ge-table input[type="text"], .ge-table input[type="number"], .ge-table select { width: 100%; }
+.ge-table td.ge-num, .ge-table th.ge-num { width: 130px; }
+.ge-table td.ge-lvl { width: 230px; }
+.ge-pname { font-weight: 600; }
+.ge-psku { color: var(--body-quiet-color); font-size: 12px; }
+.ge-empty { color: var(--body-quiet-color); padding: 8px 2px; }
+
+.ge-del { color: var(--delete-button-bg, #ba2121); background: none; border: 0; cursor: pointer; font-size: 13px; }
+.ge-del:hover { text-decoration: underline; }
+
+/* поиск и добавление */
+.ge-addbox { margin-top: 16px; }
+.ge-search { position: relative; max-width: 480px; }
+.ge-search input { width: 100%; }
+.ge-results { position: absolute; left: 0; right: 0; z-index: 20; margin-top: 3px;
+  background: var(--body-bg); border: 1px solid var(--border-color); border-radius: 6px;
+  max-height: 280px; overflow-y: auto; }
+.ge-results button { display: block; width: 100%; text-align: left; border: 0; background: none;
+  color: var(--body-fg); padding: 8px 10px; cursor: pointer; }
+.ge-results button:hover:not([disabled]) { background: var(--primary); color: var(--primary-fg, #fff); }
+.ge-results button[disabled] { color: var(--body-quiet-color); cursor: default; }
+.ge-rsku { font-size: 12px; opacity: .8; }
