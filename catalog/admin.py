@@ -44,6 +44,7 @@ from .models import (
     ProductAttributeValue,
 )
 from .group_editor import GroupEditorAdminMixin
+from . import admin_offers  # noqa: F401
 
 admin.site.site_header = "ProfiSfera PIM"
 admin.site.site_title = "ProfiSfera PIM"

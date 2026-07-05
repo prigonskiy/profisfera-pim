@@ -5,6 +5,7 @@ from django.utils import timezone
 from django_countries.fields import CountryField
 
 from .utils import unique_slugify, validate_gtin
+from .offers import Seller, Region, Warehouse, Offer, OfferTerm  # noqa: F401
 
 SLUG_HELP = "Оставьте пустым — сгенерируется автоматически из названия (транслитерацией)."
 
