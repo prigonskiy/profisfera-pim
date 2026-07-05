@@ -62,15 +62,15 @@ tr.ge-dragging, li.ge-dragging { opacity: .55; background: var(--selected-bg, rg
 
 /* поиск и добавление */
 .ge-addbox { margin-top: 16px; }
-.ge-search { position: relative; max-width: 480px; }
+.ge-search { position: relative; }
 .ge-search input { width: 100%; }
 .ge-results { position: absolute; left: 0; right: 0; z-index: 20; margin-top: 3px;
   background: var(--body-bg); border: 1px solid var(--border-color); border-radius: 6px;
-  max-height: 280px; overflow-y: auto; }
-.ge-result { display: flex; align-items: center; gap: 9px; padding: 8px 10px; cursor: pointer; color: var(--body-fg); }
+  max-height: 320px; overflow-y: auto; overflow-x: hidden; }
+.ge-result { display: flex; align-items: center; gap: 10px; padding: 8px 12px; cursor: pointer; color: var(--body-fg); }
 .ge-result:hover { background: var(--selected-bg, rgba(128,128,128,.12)); }
-.ge-result input { flex: none; margin: 0; }
-.ge-rname { flex: 1; }
+.ge-result input[type="checkbox"] { flex: none; width: 16px; height: 16px; margin: 0; }
+.ge-rname { flex: 1 1 auto; min-width: 0; }
 .ge-noresult { padding: 10px; color: var(--body-quiet-color); }
 .ge-rsku { font-size: 12px; opacity: .8; }
 .ge-selbar { display: flex; align-items: center; gap: 12px; margin-top: 10px; }
