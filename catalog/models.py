@@ -529,15 +529,6 @@ class Product(models.Model):
         db_index=True,
         help_text="Внутренний идентификатор товара в PIM. Присваивается автоматически и не меняется.",
     )
-    external_id = models.CharField(
-        "Глобальный идентификатор (код сопоставления)",
-        max_length=255,
-        unique=True,
-        null=True,
-        blank=True,
-        help_text="Код из 1С, по которому товар сопоставляется во внешних системах "
-                  "(Litics). Уникальный; оставьте пустым, если ещё не присвоен.",
-    )
 
     # Постоянные характеристики: идентификация и классификация
     gtin = models.CharField(
@@ -637,8 +628,6 @@ class Product(models.Model):
         return self.name
 
     def save(self, *args, **kwargs):
-        # пустой external_id храним как NULL: иначе несколько "" нарушат unique
-        self.external_id = (self.external_id or "").strip() or None
         if not self.slug:
             self.slug = unique_slugify(self, self.name)
         if not self.sku:

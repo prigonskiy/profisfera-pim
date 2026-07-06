@@ -37,7 +37,6 @@ MULTI_SEP = " | "
 # Базовые (некатегорийные) столбцы: (заголовок, ключ, ширина)
 CORE_COLUMNS = [
     ("Артикул PIM", "sku", 16),
-    ("Код сопоставления (ERP)", "external_id", 20),
     ("Название", "name", 40),
     ("Slug", "slug", 22),
     ("Бренд", "brand", 22),
@@ -235,7 +234,6 @@ def _add_legend_sheet(wb, chars):
         "Строка 1 — машинные идентификаторы (ключи полей и char:<код> характеристик); по ним идёт импорт. Не трогать.",
         "Строка 2 — читаемые заголовки (для человека). Данные — с третьей строки.",
         "Артикул PIM (sku) — внутренний ключ товара; по нему пойдёт сопоставление при импорте. Не меняйте.",
-        "Код сопоставления (external_id) — код товара во внешних системах (ERP/Litics); это НЕ ключ PIM.",
         f"Многозначные поля (аудитории, направления, мультисписки) разделяются «{MULTI_SEP.strip()}».",
         "Пустая ячейка = значение не задано. Булевы характеристики: «Да» / «Нет».",
         "Категория сопоставляется по столбцу «Категория (slug)». Страна — ISO-код (например, JP).",
@@ -425,7 +423,6 @@ def _apply_row(data, headers_present, char_columns, maps, report, row_no):
         raise ValueError("; ".join(errors))
 
     sku = _s(data.get("sku"))
-    ext = _s(data.get("external_id"))
     name = _s(data.get("name"))
 
     # сопоставление товара
@@ -437,9 +434,6 @@ def _apply_row(data, headers_present, char_columns, maps, report, row_no):
                 f"товар с «Артикул PIM» {sku} не найден. Артикул присваивает система; "
                 f"для нового товара оставьте столбец «Артикул PIM» пустым."
             )
-    elif ext:
-        product = Product.objects.filter(external_id=ext).first()
-
     if product is None:
         if not name:
             raise ValueError("для нового товара обязательно «Название»")
@@ -463,8 +457,6 @@ def _apply_row(data, headers_present, char_columns, maps, report, row_no):
             if cat is None:
                 raise ValueError(f"категория со slug «{slug}» не найдена")
             product.category = cat
-    if "external_id" in headers_present:
-        product.external_id = ext or None
     for f in ("manufacturer_sku", "gtin", "tnved_code", "short_description", "full_description"):
         if f in headers_present:
             setattr(product, f, _s(data.get(f)))
@@ -507,7 +499,7 @@ def _apply_row(data, headers_present, char_columns, maps, report, row_no):
 def import_workbook(fileobj, dry_run=True):
     """
     Импорт каталога из xlsx нашего формата.
-    Сопоставление: по «Артикул PIM» (sku); если он пуст — по external_id; иначе создаётся новый.
+    Сопоставление: по «Артикул PIM» (sku); пустой sku — создаётся новый товар.
     Возвращает отчёт: created / updated / skipped / errors / warnings / applied.
     """
     report = {"created": 0, "updated": 0, "skipped": 0, "errors": [], "warnings": [], "applied": not dry_run}
@@ -525,8 +517,8 @@ def import_workbook(fileobj, dry_run=True):
 
     headers = [(_s(h) or None) for h in id_row]
     headers_present = {h for h in headers if h}
-    if "sku" not in headers_present and "external_id" not in headers_present:
-        report["errors"].append((1, "В первой строке нет столбца-идентификатора (sku или external_id)."))
+    if "sku" not in headers_present:
+        report["errors"].append((1, "В первой строке нет столбца-идентификатора «Артикул PIM» (sku)."))
         wb.close()
         return report
 

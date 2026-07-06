@@ -136,6 +136,8 @@ class ProductViewSet(viewsets.ModelViewSet):
                 "attribute_values__characteristic",
                 "attribute_values__value_options",
                 "group__levels",
+                "offers__terms",
+                "offers__warehouse__seller",
             )
             .all()
         )
@@ -161,14 +163,14 @@ class ProductViewSet(viewsets.ModelViewSet):
             slugs = [s.strip() for s in direction.split(",") if s.strip()]
             qs = qs.filter(directions__slug__in=slugs).distinct()
 
-        # сопоставление с внешними системами (Litics): по коду из 1С
+        # сопоставление с внешними системами: по коду ERP из торговых предложений
         external_id = self.request.query_params.get("external_id")
         if external_id:
-            qs = qs.filter(external_id=external_id)
+            qs = qs.filter(offers__erp_code=external_id).distinct()
         external_ids = self.request.query_params.get("external_id__in")
         if external_ids:
             codes = [c.strip() for c in external_ids.split(",") if c.strip()]
-            qs = qs.filter(external_id__in=codes)
+            qs = qs.filter(offers__erp_code__in=codes).distinct()
 
         # инкрементальная синхронизация: только изменённые после указанного момента
         updated_since = self.request.query_params.get("updated_since")
@@ -191,7 +193,7 @@ class ProductViewSet(viewsets.ModelViewSet):
     )
     def by_external_id(self, request, code=None):
         """Отдать полную карточку товара по коду сопоставления из 1С."""
-        product = self.get_queryset().filter(external_id=code).first()
+        product = self.get_queryset().filter(offers__erp_code=code).distinct().first()
         if product is None:
             raise NotFound("Товар с таким кодом сопоставления не найден.")
         serializer = ProductDetailSerializer(product, context={"request": request})

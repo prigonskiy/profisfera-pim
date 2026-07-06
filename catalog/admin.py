@@ -501,9 +501,9 @@ class ProductChangeList(ChangeList):
 @admin.register(Product)
 class ProductAdmin(admin.ModelAdmin):
     form = ProductAdminForm
-    list_display = ("sku", "name", "category", "brand", "group", "manufacturer_sku", "external_id", "updated_at")
+    list_display = ("sku", "name", "category", "brand", "group", "manufacturer_sku", "updated_at")
     list_filter = ("category", "brand", "group", "country_of_origin", "audiences", "directions")
-    search_fields = ("name", "manufacturer_sku", "external_id", "gtin", "sku")
+    search_fields = ("name", "manufacturer_sku", "gtin", "sku")
     readonly_fields = ("sku", "group_editor_link")
     autocomplete_fields = ("category", "brand", "group")
     filter_horizontal = ("documents", "audiences", "directions")
@@ -595,7 +595,7 @@ class ProductAdmin(admin.ModelAdmin):
         return redirect(reverse("admin:catalog_product_changelist"))
     base_fieldsets = (
         ("Основное", {
-            "fields": ("sku", "name", "slug", "external_id", "gtin", "brand", "category", "manufacturer_sku"),
+            "fields": ("sku", "name", "slug", "gtin", "brand", "category", "manufacturer_sku"),
         }),
         ("Классификация и производство", {
             "fields": ("tnved_code", "country_of_origin"),

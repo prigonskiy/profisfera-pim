@@ -159,23 +159,23 @@ class XlsxImportTests(TestCase):
 
     def test_dry_run_creates_nothing_but_reports(self):
         f = make_import_xlsx(
-            ["sku", "external_id", "name", "category_slug"],
-            [["", "NEW-1", "Новый товар", self.cat.slug]],
+            ["sku", "name", "category_slug"],
+            [["", "Новый товар для dry-run", self.cat.slug]],
         )
         report = catalog_io.import_workbook(f, dry_run=True)
         self.assertEqual(report["created"], 1)
         self.assertFalse(report["applied"])
-        self.assertEqual(Product.objects.filter(external_id="NEW-1").count(), 0)  # откатилось
+        self.assertEqual(Product.objects.filter(name="Новый товар для dry-run").count(), 0)  # откатилось
 
     def test_real_import_creates_product_with_sku(self):
         f = make_import_xlsx(
-            ["sku", "external_id", "name", "category_slug", "char:test_flag"],
-            [["", "NEW-2", "Адгезив Bond", self.cat.slug, "Да"]],
+            ["sku", "name", "category_slug", "char:test_flag"],
+            [["", "Адгезив Bond", self.cat.slug, "Да"]],
         )
         report = catalog_io.import_workbook(f, dry_run=False)
         self.assertEqual(report["created"], 1)
         self.assertTrue(report["applied"])
-        p = Product.objects.get(external_id="NEW-2")
+        p = Product.objects.get(name="Адгезив Bond")
         self.assertTrue(p.sku)  # внутренний артикул присвоен
         av = ProductAttributeValue.objects.get(product=p, characteristic=self.bool_char)
         self.assertIs(av.value_boolean, True)
@@ -194,13 +194,13 @@ class XlsxImportTests(TestCase):
     def test_garbage_in_boolean_is_rejected(self):
         """Кейс из практики: «цц» в булевой — строка должна отклоняться, а не молча проглатываться."""
         f = make_import_xlsx(
-            ["sku", "external_id", "name", "category_slug", "char:test_flag"],
-            [["", "BAD-1", "Битый товар", self.cat.slug, "цц"]],
+            ["sku", "name", "category_slug", "char:test_flag"],
+            [["", "Битый товар", self.cat.slug, "цц"]],
         )
         report = catalog_io.import_workbook(f, dry_run=False)
         self.assertEqual(report["created"], 0)
         self.assertGreaterEqual(len(report["errors"]), 1)
-        self.assertEqual(Product.objects.filter(external_id="BAD-1").count(), 0)
+        self.assertEqual(Product.objects.filter(name="Битый товар").count(), 0)
 
     def test_unknown_sku_is_error(self):
         f = make_import_xlsx(

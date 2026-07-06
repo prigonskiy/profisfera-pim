@@ -5,8 +5,9 @@
     python manage.py import_catalog products.json
     python manage.py import_catalog products.json --dry-run   # прогон без записи
 
-Идемпотентна: ключ сопоставления — external_id (= поле "id" в JSON).
-Повторный запуск обновляет уже созданные карточки, а не плодит дубли.
+Идемпотентна: ключ сопоставления — код 1С (поле "id" в JSON), который хранится
+на предложении продавца по умолчанию (Offer.erp_code). Повторный запуск обновляет
+уже созданные карточки и их предложение, а не плодит дубли.
 
 Фаза 1 (этот импорт) переносит: название, артикул, описания, бренд,
 дерево категорий (cat2 → cat3), аудиторию (cat1), направления (specializations)
@@ -31,9 +32,16 @@ from catalog.models import (
     Characteristic,
     CharacteristicOption,
     Direction,
+    Offer,
     Product,
     ProductAttributeValue,
+    Seller,
+    Warehouse,
 )
+
+# продавец/склад по умолчанию — код сопоставления живёт на их предложениях
+DEFAULT_SELLER = "Профисфера (продавец по умолчанию)"
+DEFAULT_WAREHOUSE = "Основной склад"
 
 # cat1 (как в JSON)  ->  slug аудитории (как в PIM, из сид-миграции)
 AUDIENCE_MAP = {
@@ -94,6 +102,14 @@ class Command(BaseCommand):
         ))
 
     # ------------------------------------------------------------------ helpers
+    def _default_warehouse(self):
+        if getattr(self, "_wh", None) is None:
+            seller, _ = Seller.objects.get_or_create(name=DEFAULT_SELLER, defaults={"is_active": True})
+            self._wh, _ = Warehouse.objects.get_or_create(
+                seller=seller, name=DEFAULT_WAREHOUSE, defaults={"is_active": True},
+            )
+        return self._wh
+
     def _import_one(self, raw):
         ext = (raw.get("id") or "").strip()
         name = (raw.get("name") or "").strip()
@@ -111,11 +127,16 @@ class Command(BaseCommand):
         # Сначала находим/создаём объект в памяти и проставляем ВСЕ обязательные
         # поля (category — NOT NULL), и только потом сохраняем — одной вставкой,
         # без преждевременной «пустой» карточки.
-        try:
-            product = Product.objects.get(external_id=ext)
+        # сопоставление по коду 1С — через предложение продавца по умолчанию
+        offer = (
+            Offer.objects.filter(warehouse__seller__name=DEFAULT_SELLER, erp_code=ext)
+            .select_related("product").first()
+        )
+        if offer is not None:
+            product = offer.product
             created = False
-        except Product.DoesNotExist:
-            product = Product(external_id=ext)
+        else:
+            product = Product()
             created = True
         product.name = name
         product.manufacturer_sku = (raw.get("partNumber") or "").strip()
@@ -125,6 +146,13 @@ class Command(BaseCommand):
         product.category = category
         product.save()
         self.stats["created" if created else "updated"] += 1
+
+        # код сопоставления храним на предложении продавца по умолчанию
+        wh = self._default_warehouse()
+        off, _ = Offer.objects.get_or_create(warehouse=wh, product=product)
+        if not off.erp_code:
+            off.erp_code = ext
+            off.save(update_fields=["erp_code"])
 
         # аудитория (cat1) и направления (specializations)
         aud = self._audience(raw.get("cat1"))

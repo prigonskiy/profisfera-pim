@@ -1,3 +1,5 @@
+from decimal import Decimal, ROUND_HALF_UP
+
 from rest_framework import serializers
 from django_countries.serializer_fields import CountryField as CountrySerializerField
 
@@ -12,6 +14,35 @@ from .models import (
     Product,
     ProductImage,
 )
+
+
+# ---------------------------------------------------------------------------
+# Цены торговых предложений (демо: показываем все каналы/единицы)
+# ---------------------------------------------------------------------------
+def _per_piece(term):
+    """Цена за одну базовую единицу (штуку) с учётом размера коробки."""
+    base = term.unit_base_qty or 1
+    return (term.price / base) if base else term.price
+
+
+def _money(value):
+    return str(Decimal(value).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP))
+
+
+def _iter_active_terms(product):
+    # использует префетч offers/terms — без доп. запросов
+    for offer in product.offers.all():
+        if not offer.is_active:
+            continue
+        for term in offer.terms.all():
+            if term.is_active:
+                yield offer, term
+
+
+def price_from(product):
+    """Минимальная цена за штуку среди всех активных условий (или None)."""
+    prices = [_per_piece(t) for _, t in _iter_active_terms(product)]
+    return _money(min(prices)) if prices else None
 
 
 # ---------------------------------------------------------------------------
@@ -116,11 +147,15 @@ class ProductListSerializer(serializers.ModelSerializer):
     audiences = serializers.SlugRelatedField(slug_field="slug", many=True, read_only=True)
     directions = serializers.SlugRelatedField(slug_field="slug", many=True, read_only=True)
     thumbnail = serializers.SerializerMethodField()
+    price_from = serializers.SerializerMethodField()
 
     class Meta:
         model = Product
-        fields = ("id", "sku", "manufacturer_sku", "external_id", "name", "slug", "short_description",
-                  "brand", "category", "audiences", "directions", "thumbnail")
+        fields = ("id", "sku", "manufacturer_sku", "name", "slug", "short_description",
+                  "brand", "category", "audiences", "directions", "thumbnail", "price_from")
+
+    def get_price_from(self, obj):
+        return price_from(obj)
 
     def get_thumbnail(self, obj):
         first = obj.images.all().first()
@@ -143,15 +178,51 @@ class ProductDetailSerializer(serializers.ModelSerializer):
     characteristics = serializers.SerializerMethodField()
     group = serializers.SerializerMethodField()
     country_of_origin = serializers.SerializerMethodField()
+    price_from = serializers.SerializerMethodField()
+    offers = serializers.SerializerMethodField()
 
     class Meta:
         model = Product
         fields = (
-            "id", "sku", "external_id", "name", "slug", "short_description", "full_description",
+            "id", "sku", "name", "slug", "short_description", "full_description",
             "manufacturer_sku", "gtin", "tnved_code", "country_of_origin",
             "brand", "category", "audiences", "directions", "logistics",
             "images", "characteristics", "documents", "group",
+            "price_from", "offers",
         )
+
+    def get_price_from(self, obj):
+        return price_from(obj)
+
+    def get_offers(self, obj):
+        result = []
+        for offer in obj.offers.all():
+            if not offer.is_active:
+                continue
+            terms = []
+            for t in offer.terms.all():
+                if not t.is_active:
+                    continue
+                terms.append({
+                    "channel": t.channel,
+                    "channel_display": t.get_channel_display(),
+                    "unit_name": t.unit_name,
+                    "unit_base_qty": t.unit_base_qty,
+                    "step": t.step,
+                    "min_qty": t.min_qty,
+                    "price": _money(t.price),
+                    "per_piece": _money(_per_piece(t)),
+                })
+            if not terms:
+                continue
+            terms.sort(key=lambda x: (x["channel"], Decimal(x["per_piece"])))
+            result.append({
+                "seller": offer.warehouse.seller.name if offer.warehouse_id else None,
+                "in_stock": (offer.stock_qty or 0) > 0,
+                "currency": offer.currency,
+                "terms": terms,
+            })
+        return result
 
     def get_logistics(self, obj):
         return {
@@ -234,7 +305,7 @@ class ProductWriteSerializer(serializers.ModelSerializer):
     class Meta:
         model = Product
         fields = (
-            "id", "external_id", "name", "slug", "short_description", "full_description",
+            "id", "name", "slug", "short_description", "full_description",
             "manufacturer_sku", "gtin", "tnved_code", "country_of_origin",
             "category", "brand", "audiences", "directions",
             "gross_width_mm", "gross_height_mm", "gross_depth_mm", "gross_weight_kg",
