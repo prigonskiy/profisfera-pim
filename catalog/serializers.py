@@ -40,8 +40,9 @@ def _iter_active_terms(product):
 
 
 def price_from(product):
-    """Минимальная цена за штуку среди всех активных условий (или None)."""
-    prices = [_per_piece(t) for _, t in _iter_active_terms(product)]
+    """Минимальная розничная цена за штуку (публичный каталог — только individuals).
+    Оптовые цены отдаёт приватный эндпоинт /pricing/ по токену клиента."""
+    prices = [_per_piece(t) for _, t in _iter_active_terms(product) if t.channel == "individuals"]
     return _money(min(prices)) if prices else None
 
 
@@ -201,8 +202,8 @@ class ProductDetailSerializer(serializers.ModelSerializer):
                 continue
             terms = []
             for t in offer.terms.all():
-                if not t.is_active:
-                    continue
+                if not t.is_active or t.channel != "individuals":
+                    continue  # публичный каталог — только розница
                 terms.append({
                     "channel": t.channel,
                     "channel_display": t.get_channel_display(),
