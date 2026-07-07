@@ -2,7 +2,7 @@
 from django import forms
 from django.contrib import admin
 
-from .clients import Client, ClientMembership, LegalEntity
+from .clients import Client, ClientMembership, ClientToken, LegalEntity
 
 
 @admin.register(LegalEntity)
@@ -59,3 +59,14 @@ class ClientAdmin(admin.ModelAdmin):
     def entities_col(self, obj):
         rows = obj.memberships.select_related("legal_entity").all()
         return ", ".join(f"{m.legal_entity.name} [{m.get_status_display()}]" for m in rows) or "—"
+
+
+@admin.register(ClientToken)
+class ClientTokenAdmin(admin.ModelAdmin):
+    list_display = ("client", "key_short", "created_at")
+    search_fields = ("client__email", "key")
+    readonly_fields = ("key", "created_at")
+
+    @admin.display(description="Ключ")
+    def key_short(self, obj):
+        return (obj.key[:12] + "…") if obj.key else ""

@@ -591,3 +591,25 @@ class TinymceUploadTests(TestCase):
         )
         r = self.client.post(reverse("tinymce_upload"), {"file": svg})
         self.assertEqual(r.status_code, 400)
+
+
+class ClientModelTests(TestCase):
+    def test_password_set_and_check(self):
+        from catalog.clients import Client
+        c = Client(email="a@example.com")
+        c.set_password("secret123")
+        c.save()
+        self.assertTrue(c.check_password("secret123"))
+        self.assertFalse(c.check_password("wrong"))
+
+    def test_channels_by_approved_memberships(self):
+        from catalog.clients import Client, ClientMembership, LegalEntity
+        c = Client.objects.create(email="x@example.com")
+        self.assertEqual(c.channels(), {"individuals"})
+        clinic = LegalEntity.objects.create(inn="7700000000", name="Клиника", segment="clinics")
+        ClientMembership.objects.create(client=c, legal_entity=clinic, status="approved")
+        self.assertEqual(c.channels(), {"individuals", "clinics"})
+        # неподтверждённая привязка канал не даёт
+        dist = LegalEntity.objects.create(inn="7700000001", name="Дистр", segment="distributors")
+        ClientMembership.objects.create(client=c, legal_entity=dist, status="pending")
+        self.assertEqual(c.channels(), {"individuals", "clinics"})
