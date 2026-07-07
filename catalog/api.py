@@ -138,6 +138,7 @@ class ProductViewSet(viewsets.ModelViewSet):
                 "group__levels",
                 "offers__terms",
                 "offers__warehouse__seller",
+                "courses__modules__slides",
             )
             .all()
         )

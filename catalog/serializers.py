@@ -181,6 +181,7 @@ class ProductDetailSerializer(serializers.ModelSerializer):
     country_of_origin = serializers.SerializerMethodField()
     price_from = serializers.SerializerMethodField()
     offers = serializers.SerializerMethodField()
+    courses = serializers.SerializerMethodField()
 
     class Meta:
         model = Product
@@ -189,8 +190,33 @@ class ProductDetailSerializer(serializers.ModelSerializer):
             "manufacturer_sku", "gtin", "tnved_code", "country_of_origin",
             "brand", "category", "audiences", "directions", "logistics",
             "images", "characteristics", "documents", "group",
-            "price_from", "offers",
+            "price_from", "offers", "courses",
         )
+
+    def get_courses(self, obj):
+        request = self.context.get("request")
+        result = []
+        for c in obj.courses.all():
+            if not c.is_active:
+                continue
+            modules = []
+            for m in c.modules.all():
+                if not m.is_active:
+                    continue
+                mod = {"kind": m.kind, "kind_display": m.get_kind_display(), "title": m.title}
+                if m.kind == "video":
+                    mod["video_url"] = m.video_url
+                else:
+                    slides = []
+                    for sl in m.slides.all():
+                        img = sl.image.url if sl.image else None
+                        if img and request is not None:
+                            img = request.build_absolute_uri(img)
+                        slides.append({"title": sl.title, "body": sl.body, "image": img})
+                    mod["slides"] = slides
+                modules.append(mod)
+            result.append({"title": c.title, "slug": c.slug, "subtitle": c.subtitle, "modules": modules})
+        return result
 
     def get_price_from(self, obj):
         return price_from(obj)
