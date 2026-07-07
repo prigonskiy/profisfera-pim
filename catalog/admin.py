@@ -47,6 +47,7 @@ from .group_editor import GroupEditorAdminMixin
 from . import admin_offers  # noqa: F401
 from . import admin_clients  # noqa: F401
 from . import admin_education  # noqa: F401
+from . import admin_grouping  # noqa: F401
 
 admin.site.site_header = "ProfiSfera PIM"
 admin.site.site_title = "ProfiSfera PIM"

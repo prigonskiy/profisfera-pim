@@ -206,6 +206,8 @@ class ProductDetailSerializer(serializers.ModelSerializer):
                 mod = {"kind": m.kind, "kind_display": m.get_kind_display(), "title": m.title}
                 if m.kind == "video":
                     mod["video_url"] = m.video_url
+                elif m.kind == "longread":
+                    mod["body"] = m.body
                 else:
                     slides = []
                     for sl in m.slides.all():

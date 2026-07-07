@@ -51,3 +51,17 @@ def server_metrics(request):
         pass
 
     return JsonResponse(data)
+
+
+from django.contrib import messages  # noqa: E402
+from django.shortcuts import redirect  # noqa: E402
+
+from .storefront import trigger_rebuild  # noqa: E402
+
+
+def rebuild_storefront_view(request):
+    """Кнопка «Пересобрать витрину» с главной админки (только POST)."""
+    if request.method == "POST":
+        ok, msg = trigger_rebuild()
+        messages.add_message(request, messages.SUCCESS if ok else messages.ERROR, msg)
+    return redirect("admin:index")

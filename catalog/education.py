@@ -31,6 +31,7 @@ class CourseModule(models.Model):
     class Kind(models.TextChoices):
         SLIDES = "slides", "Слайды"
         VIDEO = "video", "Видео"
+        LONGREAD = "longread", "Лонгрид"
 
     course = models.ForeignKey(Course, on_delete=models.CASCADE, related_name="modules", verbose_name="Курс")
     kind = models.CharField("Тип", max_length=10, choices=Kind.choices, default=Kind.SLIDES)
@@ -38,6 +39,10 @@ class CourseModule(models.Model):
     video_url = models.URLField(
         "Ссылка на видео (embed)", blank=True,
         help_text="Для типа «Видео»: URL для вставки через iframe (embed-ссылка YouTube/RuTube).",
+    )
+    body = models.TextField(
+        "Текст лонгрида (HTML)", blank=True,
+        help_text="Для типа «Лонгрид»: оформленная статья (визуальный редактор).",
     )
     order = models.PositiveIntegerField("Порядок", default=0)
     is_active = models.BooleanField("Активно", default=True)

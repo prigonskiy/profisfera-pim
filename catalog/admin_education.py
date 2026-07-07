@@ -38,4 +38,6 @@ class CourseModuleAdmin(admin.ModelAdmin):
     list_display = ("title", "course", "kind", "order", "is_active")
     list_filter = ("kind", "is_active", "course")
     search_fields = ("title", "course__title")
+    fields = ("course", "kind", "title", "order", "is_active", "video_url", "body")
+    formfield_overrides = {dj_models.TextField: {"widget": TinyMCE()}}
     inlines = [SlideInline]
