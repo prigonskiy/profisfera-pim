@@ -1,5 +1,7 @@
 from decimal import Decimal, ROUND_HALF_UP
 
+from drf_spectacular.types import OpenApiTypes
+from drf_spectacular.utils import extend_schema_field
 from rest_framework import serializers
 from django_countries.serializer_fields import CountryField as CountrySerializerField
 
@@ -99,9 +101,11 @@ class DocumentSerializer(serializers.ModelSerializer):
             "issued_date", "valid_until", "is_perpetual", "status", "status_display", "file",
         )
 
+    @extend_schema_field(OpenApiTypes.STR)
     def get_status(self, obj):
         return obj.status.value
 
+    @extend_schema_field(OpenApiTypes.STR)
     def get_status_display(self, obj):
         return obj.status.label
 
@@ -155,9 +159,11 @@ class ProductListSerializer(serializers.ModelSerializer):
         fields = ("id", "sku", "manufacturer_sku", "name", "slug", "short_description",
                   "brand", "category", "audiences", "directions", "thumbnail", "price_from")
 
+    @extend_schema_field(OpenApiTypes.DECIMAL)
     def get_price_from(self, obj):
         return price_from(obj)
 
+    @extend_schema_field(OpenApiTypes.URI)
     def get_thumbnail(self, obj):
         first = obj.images.all().first()
         if not first:
@@ -193,6 +199,7 @@ class ProductDetailSerializer(serializers.ModelSerializer):
             "price_from", "offers", "courses",
         )
 
+    @extend_schema_field({"type": "array", "items": {"type": "object"}})
     def get_courses(self, obj):
         request = self.context.get("request")
         result = []
@@ -220,9 +227,11 @@ class ProductDetailSerializer(serializers.ModelSerializer):
             result.append({"title": c.title, "slug": c.slug, "subtitle": c.subtitle, "modules": modules})
         return result
 
+    @extend_schema_field(OpenApiTypes.DECIMAL)
     def get_price_from(self, obj):
         return price_from(obj)
 
+    @extend_schema_field({"type": "array", "items": {"type": "object"}})
     def get_offers(self, obj):
         result = []
         for offer in obj.offers.all():
@@ -253,6 +262,7 @@ class ProductDetailSerializer(serializers.ModelSerializer):
             })
         return result
 
+    @extend_schema_field({"type": "object", "properties": {"gross_width_mm": {"type": "integer", "nullable": True}, "gross_height_mm": {"type": "integer", "nullable": True}, "gross_depth_mm": {"type": "integer", "nullable": True}, "gross_weight_kg": {"type": "number", "nullable": True}}})
     def get_logistics(self, obj):
         return {
             "gross_width_mm": obj.gross_width_mm,
@@ -261,6 +271,7 @@ class ProductDetailSerializer(serializers.ModelSerializer):
             "gross_weight_kg": obj.gross_weight_kg,
         }
 
+    @extend_schema_field({"type": "array", "items": {"type": "object"}})
     def get_characteristics(self, obj):
         items = []
         values = sorted(
@@ -281,12 +292,14 @@ class ProductDetailSerializer(serializers.ModelSerializer):
             })
         return items
 
+    @extend_schema_field({"type": "object", "nullable": True, "properties": {"code": {"type": "string"}, "name": {"type": "string"}}})
     def get_country_of_origin(self, obj):
         country = obj.country_of_origin
         if not country:
             return None
         return {"code": country.code, "name": country.name}
 
+    @extend_schema_field({"type": "object", "nullable": True})
     def get_group(self, obj):
         """Серия товара и список её вариантов для переключателя на карточке."""
         grp = obj.group

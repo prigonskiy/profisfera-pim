@@ -6,6 +6,7 @@
 """
 from decimal import Decimal
 
+from drf_spectacular.utils import extend_schema
 from rest_framework.authentication import BaseAuthentication
 from rest_framework.exceptions import AuthenticationFailed
 from rest_framework.generics import get_object_or_404
@@ -99,6 +100,7 @@ class LoginView(APIView):
     authentication_classes = []
     permission_classes = [AllowAny]
 
+    @extend_schema(exclude=True)  # приватный слой (клиенты) — вне контентной схемы
     def post(self, request):
         email = (request.data.get("email") or "").strip().lower()
         password = request.data.get("password") or ""
@@ -113,6 +115,7 @@ class LogoutView(APIView):
     authentication_classes = [ClientTokenAuthentication]
     permission_classes = [IsAuthenticated]
 
+    @extend_schema(exclude=True)  # приватный слой (клиенты) — вне контентной схемы
     def post(self, request):
         if getattr(request, "auth", None) is not None:
             request.auth.delete()
@@ -123,6 +126,7 @@ class MeView(APIView):
     authentication_classes = [ClientTokenAuthentication]
     permission_classes = [IsAuthenticated]
 
+    @extend_schema(exclude=True)  # приватный слой (клиенты) — вне контентной схемы
     def get(self, request):
         return Response(_client_dict(request.user))
 
@@ -132,6 +136,7 @@ class PricingView(APIView):
     authentication_classes = [ClientTokenAuthentication]
     permission_classes = [AllowAny]
 
+    @extend_schema(exclude=True)  # приватный слой (цены/офферы) — на паузе, вне схемы
     def get(self, request, slug):
         product = get_object_or_404(
             Product.objects.prefetch_related("offers__terms", "offers__warehouse__seller"),

@@ -1,0 +1,3091 @@
+openapi: 3.0.3
+info:
+  title: ProfiSfera PIM — Catalog API
+  version: 1.0.0
+  description: 'Headless-каталог ProfiSfera: товары, категории, характеристики, бренды,
+    документы, навигационные фасеты, группировки вариантов и обучение. Публичное чтение;
+    запись — по токену staff. Ключ интеграции контента — внутренний sku. Инкрементальная
+    выборка — параметр updated_since. Коммерческий слой (цены/остатки/клиенты) в контракт
+    не входит.'
+paths:
+  /api/audiences/:
+    get:
+      operationId: api_audiences_list
+      parameters:
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      tags:
+      - api
+      security:
+      - tokenAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedAudienceList'
+          description: ''
+    post:
+      operationId: api_audiences_create
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AudienceRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/AudienceRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/AudienceRequest'
+        required: true
+      security:
+      - tokenAuth: []
+      - cookieAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Audience'
+          description: ''
+  /api/audiences/{slug}/:
+    get:
+      operationId: api_audiences_retrieve
+      parameters:
+      - in: path
+        name: slug
+        schema:
+          type: string
+          description: Оставьте пустым — сгенерируется автоматически из названия (транслитерацией).
+        required: true
+      tags:
+      - api
+      security:
+      - tokenAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Audience'
+          description: ''
+    put:
+      operationId: api_audiences_update
+      parameters:
+      - in: path
+        name: slug
+        schema:
+          type: string
+          description: Оставьте пустым — сгенерируется автоматически из названия (транслитерацией).
+        required: true
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AudienceRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/AudienceRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/AudienceRequest'
+        required: true
+      security:
+      - tokenAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Audience'
+          description: ''
+    patch:
+      operationId: api_audiences_partial_update
+      parameters:
+      - in: path
+        name: slug
+        schema:
+          type: string
+          description: Оставьте пустым — сгенерируется автоматически из названия (транслитерацией).
+        required: true
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedAudienceRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedAudienceRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedAudienceRequest'
+      security:
+      - tokenAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Audience'
+          description: ''
+    delete:
+      operationId: api_audiences_destroy
+      parameters:
+      - in: path
+        name: slug
+        schema:
+          type: string
+          description: Оставьте пустым — сгенерируется автоматически из названия (транслитерацией).
+        required: true
+      tags:
+      - api
+      security:
+      - tokenAuth: []
+      - cookieAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/audiences/menu/:
+    get:
+      operationId: api_audiences_menu_retrieve
+      description: Все аудитории со вложенными направлениями — готовое дерево для
+        меню.
+      tags:
+      - api
+      security:
+      - tokenAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Audience'
+          description: ''
+  /api/brands/:
+    get:
+      operationId: api_brands_list
+      parameters:
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      tags:
+      - api
+      security:
+      - tokenAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedBrandList'
+          description: ''
+    post:
+      operationId: api_brands_create
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BrandRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/BrandRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/BrandRequest'
+        required: true
+      security:
+      - tokenAuth: []
+      - cookieAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Brand'
+          description: ''
+  /api/brands/{slug}/:
+    get:
+      operationId: api_brands_retrieve
+      parameters:
+      - in: path
+        name: slug
+        schema:
+          type: string
+          description: Оставьте пустым — сгенерируется автоматически из названия (транслитерацией).
+        required: true
+      tags:
+      - api
+      security:
+      - tokenAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Brand'
+          description: ''
+    put:
+      operationId: api_brands_update
+      parameters:
+      - in: path
+        name: slug
+        schema:
+          type: string
+          description: Оставьте пустым — сгенерируется автоматически из названия (транслитерацией).
+        required: true
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BrandRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/BrandRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/BrandRequest'
+        required: true
+      security:
+      - tokenAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Brand'
+          description: ''
+    patch:
+      operationId: api_brands_partial_update
+      parameters:
+      - in: path
+        name: slug
+        schema:
+          type: string
+          description: Оставьте пустым — сгенерируется автоматически из названия (транслитерацией).
+        required: true
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedBrandRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedBrandRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedBrandRequest'
+      security:
+      - tokenAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Brand'
+          description: ''
+    delete:
+      operationId: api_brands_destroy
+      parameters:
+      - in: path
+        name: slug
+        schema:
+          type: string
+          description: Оставьте пустым — сгенерируется автоматически из названия (транслитерацией).
+        required: true
+      tags:
+      - api
+      security:
+      - tokenAuth: []
+      - cookieAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/categories/:
+    get:
+      operationId: api_categories_list
+      parameters:
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      tags:
+      - api
+      security:
+      - tokenAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedCategoryList'
+          description: ''
+    post:
+      operationId: api_categories_create
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CategoryRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/CategoryRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/CategoryRequest'
+        required: true
+      security:
+      - tokenAuth: []
+      - cookieAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Category'
+          description: ''
+  /api/categories/{slug}/:
+    get:
+      operationId: api_categories_retrieve
+      parameters:
+      - in: path
+        name: slug
+        schema:
+          type: string
+          description: Оставьте пустым — сгенерируется автоматически из названия (транслитерацией).
+        required: true
+      tags:
+      - api
+      security:
+      - tokenAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Category'
+          description: ''
+    put:
+      operationId: api_categories_update
+      parameters:
+      - in: path
+        name: slug
+        schema:
+          type: string
+          description: Оставьте пустым — сгенерируется автоматически из названия (транслитерацией).
+        required: true
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CategoryRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/CategoryRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/CategoryRequest'
+        required: true
+      security:
+      - tokenAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Category'
+          description: ''
+    patch:
+      operationId: api_categories_partial_update
+      parameters:
+      - in: path
+        name: slug
+        schema:
+          type: string
+          description: Оставьте пустым — сгенерируется автоматически из названия (транслитерацией).
+        required: true
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedCategoryRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedCategoryRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedCategoryRequest'
+      security:
+      - tokenAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Category'
+          description: ''
+    delete:
+      operationId: api_categories_destroy
+      parameters:
+      - in: path
+        name: slug
+        schema:
+          type: string
+          description: Оставьте пустым — сгенерируется автоматически из названия (транслитерацией).
+        required: true
+      tags:
+      - api
+      security:
+      - tokenAuth: []
+      - cookieAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/categories/{slug}/filters/:
+    get:
+      operationId: api_categories_filters_retrieve
+      description: Эффективная конфигурация фильтров категории (свои + унаследованные).
+      parameters:
+      - in: path
+        name: slug
+        schema:
+          type: string
+          description: Оставьте пустым — сгенерируется автоматически из названия (транслитерацией).
+        required: true
+      tags:
+      - api
+      security:
+      - tokenAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Category'
+          description: ''
+  /api/categories/tree/:
+    get:
+      operationId: api_categories_tree_retrieve
+      description: Дерево категорий от корней (parent is null) с вложенностью.
+      tags:
+      - api
+      security:
+      - tokenAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Category'
+          description: ''
+  /api/characteristics/:
+    get:
+      operationId: api_characteristics_list
+      parameters:
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      tags:
+      - api
+      security:
+      - tokenAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedCharacteristicList'
+          description: ''
+    post:
+      operationId: api_characteristics_create
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CharacteristicRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/CharacteristicRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/CharacteristicRequest'
+        required: true
+      security:
+      - tokenAuth: []
+      - cookieAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Characteristic'
+          description: ''
+  /api/characteristics/{code}/:
+    get:
+      operationId: api_characteristics_retrieve
+      parameters:
+      - in: path
+        name: code
+        schema:
+          type: string
+          title: Код
+          description: Машинный код для API. Оставьте пустым — сгенерируется из названия.
+        required: true
+      tags:
+      - api
+      security:
+      - tokenAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Characteristic'
+          description: ''
+    put:
+      operationId: api_characteristics_update
+      parameters:
+      - in: path
+        name: code
+        schema:
+          type: string
+          title: Код
+          description: Машинный код для API. Оставьте пустым — сгенерируется из названия.
+        required: true
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CharacteristicRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/CharacteristicRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/CharacteristicRequest'
+        required: true
+      security:
+      - tokenAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Characteristic'
+          description: ''
+    patch:
+      operationId: api_characteristics_partial_update
+      parameters:
+      - in: path
+        name: code
+        schema:
+          type: string
+          title: Код
+          description: Машинный код для API. Оставьте пустым — сгенерируется из названия.
+        required: true
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedCharacteristicRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedCharacteristicRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedCharacteristicRequest'
+      security:
+      - tokenAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Characteristic'
+          description: ''
+    delete:
+      operationId: api_characteristics_destroy
+      parameters:
+      - in: path
+        name: code
+        schema:
+          type: string
+          title: Код
+          description: Машинный код для API. Оставьте пустым — сгенерируется из названия.
+        required: true
+      tags:
+      - api
+      security:
+      - tokenAuth: []
+      - cookieAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/directions/:
+    get:
+      operationId: api_directions_list
+      parameters:
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      tags:
+      - api
+      security:
+      - tokenAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedDirectionList'
+          description: ''
+    post:
+      operationId: api_directions_create
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DirectionRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/DirectionRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/DirectionRequest'
+        required: true
+      security:
+      - tokenAuth: []
+      - cookieAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Direction'
+          description: ''
+  /api/directions/{slug}/:
+    get:
+      operationId: api_directions_retrieve
+      parameters:
+      - in: path
+        name: slug
+        schema:
+          type: string
+          description: Оставьте пустым — сгенерируется автоматически из названия (транслитерацией).
+        required: true
+      tags:
+      - api
+      security:
+      - tokenAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Direction'
+          description: ''
+    put:
+      operationId: api_directions_update
+      parameters:
+      - in: path
+        name: slug
+        schema:
+          type: string
+          description: Оставьте пустым — сгенерируется автоматически из названия (транслитерацией).
+        required: true
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DirectionRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/DirectionRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/DirectionRequest'
+        required: true
+      security:
+      - tokenAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Direction'
+          description: ''
+    patch:
+      operationId: api_directions_partial_update
+      parameters:
+      - in: path
+        name: slug
+        schema:
+          type: string
+          description: Оставьте пустым — сгенерируется автоматически из названия (транслитерацией).
+        required: true
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedDirectionRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedDirectionRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedDirectionRequest'
+      security:
+      - tokenAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Direction'
+          description: ''
+    delete:
+      operationId: api_directions_destroy
+      parameters:
+      - in: path
+        name: slug
+        schema:
+          type: string
+          description: Оставьте пустым — сгенерируется автоматически из названия (транслитерацией).
+        required: true
+      tags:
+      - api
+      security:
+      - tokenAuth: []
+      - cookieAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/documents/:
+    get:
+      operationId: api_documents_list
+      parameters:
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      tags:
+      - api
+      security:
+      - tokenAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedDocumentList'
+          description: ''
+    post:
+      operationId: api_documents_create
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DocumentRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/DocumentRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/DocumentRequest'
+        required: true
+      security:
+      - tokenAuth: []
+      - cookieAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Document'
+          description: ''
+  /api/documents/{id}/:
+    get:
+      operationId: api_documents_retrieve
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this Документ.
+        required: true
+      tags:
+      - api
+      security:
+      - tokenAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Document'
+          description: ''
+    put:
+      operationId: api_documents_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this Документ.
+        required: true
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DocumentRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/DocumentRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/DocumentRequest'
+        required: true
+      security:
+      - tokenAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Document'
+          description: ''
+    patch:
+      operationId: api_documents_partial_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this Документ.
+        required: true
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedDocumentRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedDocumentRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedDocumentRequest'
+      security:
+      - tokenAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Document'
+          description: ''
+    delete:
+      operationId: api_documents_destroy
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this Документ.
+        required: true
+      tags:
+      - api
+      security:
+      - tokenAuth: []
+      - cookieAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/products/:
+    get:
+      operationId: api_products_list
+      description: Публичный список карточек. Фильтры комбинируются по И. Внутри мультизначных
+        фасетов (audience/direction) значения работают по ИЛИ.
+      summary: Список товаров
+      parameters:
+      - in: query
+        name: audience
+        schema:
+          type: string
+        description: Slug(и) аудитории через запятую.
+      - in: query
+        name: brand
+        schema:
+          type: integer
+        description: ID бренда.
+      - in: query
+        name: category
+        schema:
+          type: integer
+        description: ID категории (включая всех потомков).
+      - in: query
+        name: direction
+        schema:
+          type: string
+        description: Slug(и) направления через запятую.
+      - in: query
+        name: external_id
+        schema:
+          type: string
+        description: Код ERP продавца (коммерческий слой; для контента используйте
+          sku).
+      - in: query
+        name: external_id__in
+        schema:
+          type: string
+        description: Несколько кодов ERP через запятую.
+      - in: query
+        name: ordering
+        schema:
+          type: string
+        description: 'Сортировка: name | created_at | updated_at (с «-» — по убыванию).'
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      - in: query
+        name: search
+        schema:
+          type: string
+        description: Поиск по названию/артикулу производителя/краткому описанию.
+      - in: query
+        name: sku
+        schema:
+          type: string
+        description: Точный внутренний sku PIM (ключ интеграции контента).
+      - in: query
+        name: sku__in
+        schema:
+          type: string
+        description: Несколько sku через запятую.
+      - in: query
+        name: updated_since
+        schema:
+          type: string
+        description: ISO-8601 дата-время (URL-кодировать). Только изменённые после
+          момента — для инкрементальной синхронизации.
+      tags:
+      - api
+      security:
+      - tokenAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedProductListList'
+          description: ''
+    post:
+      operationId: api_products_create
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProductWriteRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/ProductWriteRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/ProductWriteRequest'
+        required: true
+      security:
+      - tokenAuth: []
+      - cookieAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProductWrite'
+          description: ''
+  /api/products/{slug}/:
+    get:
+      operationId: api_products_retrieve
+      description: Полная карточка по slug или sku.
+      summary: Карточка товара
+      parameters:
+      - in: path
+        name: slug
+        schema:
+          type: string
+          description: Оставьте пустым — сгенерируется автоматически из названия (транслитерацией).
+        required: true
+      tags:
+      - api
+      security:
+      - tokenAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProductDetail'
+          description: ''
+    put:
+      operationId: api_products_update
+      parameters:
+      - in: path
+        name: slug
+        schema:
+          type: string
+          description: Оставьте пустым — сгенерируется автоматически из названия (транслитерацией).
+        required: true
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProductWriteRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/ProductWriteRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/ProductWriteRequest'
+        required: true
+      security:
+      - tokenAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProductWrite'
+          description: ''
+    patch:
+      operationId: api_products_partial_update
+      parameters:
+      - in: path
+        name: slug
+        schema:
+          type: string
+          description: Оставьте пустым — сгенерируется автоматически из названия (транслитерацией).
+        required: true
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedProductWriteRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedProductWriteRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedProductWriteRequest'
+      security:
+      - tokenAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProductWrite'
+          description: ''
+    delete:
+      operationId: api_products_destroy
+      parameters:
+      - in: path
+        name: slug
+        schema:
+          type: string
+          description: Оставьте пустым — сгенерируется автоматически из названия (транслитерацией).
+        required: true
+      tags:
+      - api
+      security:
+      - tokenAuth: []
+      - cookieAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/products/by-external-id/{code}/:
+    get:
+      operationId: api_products_by_external_id_retrieve
+      description: Полная карточка по коду ERP продавца (коммерческий слой; для контента
+        см. by-sku).
+      parameters:
+      - in: path
+        name: code
+        schema:
+          type: string
+          pattern: ^[^/]+$
+        required: true
+      tags:
+      - api
+      security:
+      - tokenAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProductDetail'
+          description: ''
+  /api/products/by-sku/{sku}/:
+    get:
+      operationId: api_products_by_sku_retrieve
+      description: Полная карточка товара по внутреннему sku PIM (ключ интеграции
+        контента).
+      parameters:
+      - in: path
+        name: sku
+        schema:
+          type: string
+          pattern: ^[^/]+$
+        required: true
+      tags:
+      - api
+      security:
+      - tokenAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProductDetail'
+          description: ''
+components:
+  schemas:
+    Audience:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        name:
+          type: string
+          title: Название
+          maxLength: 255
+        slug:
+          type: string
+          description: Оставьте пустым — сгенерируется автоматически из названия (транслитерацией).
+          maxLength: 255
+          pattern: ^[-a-zA-Z0-9_]+$
+        icon:
+          type: string
+          title: Иконка
+          description: Идентификатор иконки для меню магазина (опционально).
+          maxLength: 64
+        order:
+          type: integer
+          maximum: 9223372036854775807
+          minimum: 0
+          format: int64
+          title: Порядок
+      required:
+      - id
+      - name
+    AudienceRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          title: Название
+          maxLength: 255
+        slug:
+          type: string
+          description: Оставьте пустым — сгенерируется автоматически из названия (транслитерацией).
+          maxLength: 255
+          pattern: ^[-a-zA-Z0-9_]+$
+        icon:
+          type: string
+          title: Иконка
+          description: Идентификатор иконки для меню магазина (опционально).
+          maxLength: 64
+        order:
+          type: integer
+          maximum: 9223372036854775807
+          minimum: 0
+          format: int64
+          title: Порядок
+      required:
+      - name
+    BlankEnum:
+      enum:
+      - ''
+    Brand:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        name:
+          type: string
+          title: Название
+          maxLength: 255
+        slug:
+          type: string
+          description: Оставьте пустым — сгенерируется автоматически из названия (транслитерацией).
+          maxLength: 255
+          pattern: ^[-a-zA-Z0-9_]+$
+        logo:
+          type: string
+          format: uri
+          nullable: true
+          title: Логотип
+          description: Растровое изображение или SVG. Для логотипов предпочтителен
+            SVG — он чёткий на любом размере.
+          pattern: (?:svg|png|jpg|jpeg|webp|gif)$
+        description:
+          type: string
+          title: Описание
+      required:
+      - id
+      - name
+    BrandRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          title: Название
+          maxLength: 255
+        slug:
+          type: string
+          description: Оставьте пустым — сгенерируется автоматически из названия (транслитерацией).
+          maxLength: 255
+          pattern: ^[-a-zA-Z0-9_]+$
+        logo:
+          type: string
+          format: binary
+          nullable: true
+          title: Логотип
+          description: Растровое изображение или SVG. Для логотипов предпочтителен
+            SVG — он чёткий на любом размере.
+          pattern: (?:svg|png|jpg|jpeg|webp|gif)$
+        description:
+          type: string
+          title: Описание
+      required:
+      - name
+    Category:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        name:
+          type: string
+          title: Название
+          maxLength: 255
+        slug:
+          type: string
+          description: Оставьте пустым — сгенерируется автоматически из названия (транслитерацией).
+          maxLength: 255
+          pattern: ^[-a-zA-Z0-9_]+$
+        parent:
+          type: integer
+          nullable: true
+          title: Родительская категория
+      required:
+      - id
+      - name
+    CategoryRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          title: Название
+          maxLength: 255
+        slug:
+          type: string
+          description: Оставьте пустым — сгенерируется автоматически из названия (транслитерацией).
+          maxLength: 255
+          pattern: ^[-a-zA-Z0-9_]+$
+        parent:
+          type: integer
+          nullable: true
+          title: Родительская категория
+      required:
+      - name
+    Characteristic:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        name:
+          type: string
+          title: Название
+          maxLength: 255
+        code:
+          type: string
+          title: Код
+          description: Машинный код для API. Оставьте пустым — сгенерируется из названия.
+          maxLength: 128
+          pattern: ^[-a-zA-Z0-9_]+$
+        type:
+          allOf:
+          - $ref: '#/components/schemas/TypeEnum'
+          title: Тип
+        unit:
+          type: string
+          title: Единица измерения
+          description: Напр. 'мм', 'кг'. Имеет смысл для числовых характеристик.
+          maxLength: 32
+        is_global:
+          type: boolean
+          title: Общая характеристика
+          description: Показывать у всех товаров независимо от категории. Если выключено
+            — только у товаров категорий из списка ниже.
+        options:
+          type: array
+          items:
+            $ref: '#/components/schemas/CharacteristicOption'
+          readOnly: true
+      required:
+      - id
+      - name
+      - options
+      - type
+    CharacteristicOption:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        value:
+          type: string
+          title: Значение
+          maxLength: 255
+      required:
+      - id
+      - value
+    CharacteristicOptionRequest:
+      type: object
+      properties:
+        value:
+          type: string
+          minLength: 1
+          title: Значение
+          maxLength: 255
+      required:
+      - value
+    CharacteristicRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          title: Название
+          maxLength: 255
+        code:
+          type: string
+          title: Код
+          description: Машинный код для API. Оставьте пустым — сгенерируется из названия.
+          maxLength: 128
+          pattern: ^[-a-zA-Z0-9_]+$
+        type:
+          allOf:
+          - $ref: '#/components/schemas/TypeEnum'
+          title: Тип
+        unit:
+          type: string
+          title: Единица измерения
+          description: Напр. 'мм', 'кг'. Имеет смысл для числовых характеристик.
+          maxLength: 32
+        is_global:
+          type: boolean
+          title: Общая характеристика
+          description: Показывать у всех товаров независимо от категории. Если выключено
+            — только у товаров категорий из списка ниже.
+      required:
+      - name
+      - type
+    CountryOfOriginEnum:
+      enum:
+      - AF
+      - AL
+      - DZ
+      - AD
+      - AO
+      - AI
+      - AQ
+      - AR
+      - AM
+      - AW
+      - AU
+      - AT
+      - AZ
+      - BH
+      - BD
+      - BB
+      - BY
+      - BE
+      - BZ
+      - BJ
+      - BT
+      - BO
+      - BW
+      - BR
+      - BN
+      - BG
+      - BI
+      - KH
+      - CM
+      - CA
+      - TD
+      - CL
+      - CN
+      - CO
+      - CG
+      - HR
+      - CU
+      - CW
+      - CY
+      - CZ
+      - DK
+      - DJ
+      - DM
+      - EC
+      - EG
+      - SV
+      - ER
+      - EE
+      - SZ
+      - ET
+      - FJ
+      - FI
+      - FR
+      - GA
+      - GM
+      - GE
+      - DE
+      - GH
+      - GI
+      - GR
+      - GL
+      - GD
+      - GP
+      - GU
+      - GT
+      - GG
+      - GN
+      - GY
+      - HT
+      - HN
+      - HK
+      - HU
+      - IS
+      - IN
+      - ID
+      - IR
+      - IQ
+      - IE
+      - IL
+      - IT
+      - JM
+      - JP
+      - JE
+      - JO
+      - KZ
+      - KE
+      - KI
+      - KW
+      - KG
+      - LA
+      - LV
+      - LB
+      - LS
+      - LR
+      - LY
+      - LI
+      - LT
+      - LU
+      - MO
+      - MG
+      - MW
+      - MY
+      - MV
+      - ML
+      - MT
+      - MQ
+      - MR
+      - MU
+      - YT
+      - MX
+      - MD
+      - MC
+      - MN
+      - ME
+      - MS
+      - MA
+      - MZ
+      - MM
+      - NA
+      - NR
+      - NP
+      - NL
+      - NI
+      - NE
+      - NG
+      - NU
+      - 'NO'
+      - OM
+      - PK
+      - PW
+      - PA
+      - PY
+      - PE
+      - PH
+      - PN
+      - PL
+      - PT
+      - QA
+      - RE
+      - RO
+      - RU
+      - RW
+      - WS
+      - SN
+      - RS
+      - SG
+      - SK
+      - SI
+      - SO
+      - ES
+      - SD
+      - SR
+      - SE
+      - CH
+      - SY
+      - TW
+      - TJ
+      - TZ
+      - TH
+      - TG
+      - TK
+      - TO
+      - TN
+      - TR
+      - TM
+      - TV
+      - UG
+      - UA
+      - GB
+      - UY
+      - UZ
+      - VU
+      - VE
+      - VN
+      - YE
+      - ZM
+      - ZW
+      - AX
+      - AS
+      - BS
+      - BM
+      - BV
+      - KY
+      - CF
+      - CX
+      - KM
+      - CK
+      - DO
+      - GQ
+      - FO
+      - GF
+      - PF
+      - VA
+      - IM
+      - KP
+      - KR
+      - MH
+      - NC
+      - NZ
+      - NF
+      - MK
+      - SA
+      - SC
+      - SB
+      - ZA
+      - SS
+      - EH
+      - AG
+      - BA
+      - TF
+      - MP
+      - TT
+      - AE
+      - US
+      - WF
+      - TC
+      - UM
+      - IO
+      - HM
+      - GS
+      - VG
+      - VI
+      - MF
+      - SX
+      - SJ
+      - CD
+      - FM
+      - CC
+      - FK
+      - SH
+      - SM
+      - PS
+      - BQ
+      - BF
+      - CV
+      - CR
+      - GW
+      - PR
+      - BL
+      - LC
+      - SL
+      - LK
+      - TL
+      - PG
+      - KN
+      - PM
+      - VC
+      - ST
+      - CI
+      type: string
+      description: |-
+        * `AF` - Афганистан
+        * `AL` - Албания
+        * `DZ` - Алжир
+        * `AD` - Андорра
+        * `AO` - Ангола
+        * `AI` - Ангилья
+        * `AQ` - Антарктида
+        * `AR` - Аргентина
+        * `AM` - Армения
+        * `AW` - Аруба
+        * `AU` - Австралия
+        * `AT` - Австрия
+        * `AZ` - Азербайджан
+        * `BH` - Бахрейн
+        * `BD` - Бангладеш
+        * `BB` - Барбадос
+        * `BY` - Беларусь
+        * `BE` - Бельгия
+        * `BZ` - Белиз
+        * `BJ` - Бенин
+        * `BT` - Бутан
+        * `BO` - Боливия
+        * `BW` - Ботсвана
+        * `BR` - Бразилия
+        * `BN` - Бруней
+        * `BG` - Болгария
+        * `BI` - Бурунди
+        * `KH` - Камбоджа
+        * `CM` - Камерун
+        * `CA` - Канада
+        * `TD` - Чад
+        * `CL` - Чили
+        * `CN` - Китай
+        * `CO` - Колумбия
+        * `CG` - Конго
+        * `HR` - Хорватия
+        * `CU` - Куба
+        * `CW` - Кюрасао
+        * `CY` - Кипр
+        * `CZ` - Чехия
+        * `DK` - Дания
+        * `DJ` - Джибути
+        * `DM` - Доминика
+        * `EC` - Эквадор
+        * `EG` - Египет
+        * `SV` - Сальвадор
+        * `ER` - Эритрея
+        * `EE` - Эстония
+        * `SZ` - Эсватини
+        * `ET` - Эфиопия
+        * `FJ` - Фиджи
+        * `FI` - Финляндия
+        * `FR` - Франция
+        * `GA` - Габон
+        * `GM` - Гамбия
+        * `GE` - Грузия
+        * `DE` - Германия
+        * `GH` - Гана
+        * `GI` - Гибралтар
+        * `GR` - Греция
+        * `GL` - Гренландия
+        * `GD` - Гренада
+        * `GP` - Гваделупа
+        * `GU` - Гуам
+        * `GT` - Гватемала
+        * `GG` - Гернси
+        * `GN` - Гвинея
+        * `GY` - Гайана
+        * `HT` - Гаити
+        * `HN` - Гондурас
+        * `HK` - Гонконг
+        * `HU` - Венгрия
+        * `IS` - Исландия
+        * `IN` - Индия
+        * `ID` - Индонезия
+        * `IR` - Иран
+        * `IQ` - Ирак
+        * `IE` - Ирландия
+        * `IL` - Израиль
+        * `IT` - Италия
+        * `JM` - Ямайка
+        * `JP` - Япония
+        * `JE` - Джерси
+        * `JO` - Иордания
+        * `KZ` - Казахстан
+        * `KE` - Кения
+        * `KI` - Кирибати
+        * `KW` - Кувейт
+        * `KG` - Киргизия
+        * `LA` - Лаос
+        * `LV` - Латвия
+        * `LB` - Ливан
+        * `LS` - Лесото
+        * `LR` - Либерии
+        * `LY` - Ливия
+        * `LI` - Лихтенштейн
+        * `LT` - Литва
+        * `LU` - Люксембург
+        * `MO` - Макао
+        * `MG` - Мадагаскар
+        * `MW` - Малави
+        * `MY` - Малайзия
+        * `MV` - Мальдивы
+        * `ML` - Мали
+        * `MT` - Мальта
+        * `MQ` - Мартиника
+        * `MR` - Мавритания
+        * `MU` - Маврикий
+        * `YT` - Майотта
+        * `MX` - Мексика
+        * `MD` - Молдова
+        * `MC` - Монако
+        * `MN` - Монголия
+        * `ME` - Черногория
+        * `MS` - Монтсеррат
+        * `MA` - Марокко
+        * `MZ` - Мозамбик
+        * `MM` - Мьянмы
+        * `NA` - Намибия
+        * `NR` - Науру
+        * `NP` - Непал
+        * `NL` - Нидерланды
+        * `NI` - Никарагуа
+        * `NE` - Нигер
+        * `NG` - Нигерия
+        * `NU` - Ниуэ
+        * `NO` - Норвегия
+        * `OM` - Оман
+        * `PK` - Пакистан
+        * `PW` - Палау
+        * `PA` - Панама
+        * `PY` - Парагвай
+        * `PE` - Перу
+        * `PH` - Филиппины
+        * `PN` - Питкэрн
+        * `PL` - Польша
+        * `PT` - Португалия
+        * `QA` - Катар
+        * `RE` - Реюньон
+        * `RO` - Румыния
+        * `RU` - Россия
+        * `RW` - Руанда
+        * `WS` - Самоа
+        * `SN` - Сенегал
+        * `RS` - Сербия
+        * `SG` - Сингапур
+        * `SK` - Словакия
+        * `SI` - Словения
+        * `SO` - Сомали
+        * `ES` - Испания
+        * `SD` - Судан
+        * `SR` - Суринам
+        * `SE` - Швеция
+        * `CH` - Швейцария
+        * `SY` - Сирия
+        * `TW` - Тайвань
+        * `TJ` - Таджикистан
+        * `TZ` - Танзания
+        * `TH` - Таиланд
+        * `TG` - Того
+        * `TK` - Токелау
+        * `TO` - Тонга
+        * `TN` - Тунис
+        * `TR` - Турция
+        * `TM` - Туркменистан
+        * `TV` - Тувалу
+        * `UG` - Уганда
+        * `UA` - Украина
+        * `GB` - Великобритания
+        * `UY` - Уругвай
+        * `UZ` - Узбекистан
+        * `VU` - Вануату
+        * `VE` - Венесуэла
+        * `VN` - Вьетнам
+        * `YE` - Йемен
+        * `ZM` - Замбия
+        * `ZW` - Зимбабве
+        * `AX` - Аландские острова
+        * `AS` - Американское Самоа
+        * `BS` - Багамские острова
+        * `BM` - Бермудские острова
+        * `BV` - Остров Буве
+        * `KY` - Каймановы острова
+        * `CF` - Центральноафриканская Республика
+        * `CX` - Остров Рождества
+        * `KM` - Коморские острова
+        * `CK` - Острова Кука
+        * `DO` - Доминиканская Республика
+        * `GQ` - Экваториальная Гвинея
+        * `FO` - Фарерские острова
+        * `GF` - Французская Гвиана
+        * `PF` - Французская Полинезия
+        * `VA` - Святой Престол
+        * `IM` - Остров Мэн
+        * `KP` - Северная Корея
+        * `KR` - Южная Корея
+        * `MH` - Маршалловы острова
+        * `NC` - Новой Каледонии
+        * `NZ` - Новая Зеландия
+        * `NF` - Остров Норфолк
+        * `MK` - Северная Македония
+        * `SA` - Саудовская Аравия
+        * `SC` - Сейшельские острова
+        * `SB` - Соломоновы Острова
+        * `ZA` - Южная Африка
+        * `SS` - Южный Судан
+        * `EH` - Западная Сахара
+        * `AG` - Антигуа и Барбуда
+        * `BA` - Босния и Герцеговина
+        * `TF` - Французские южные территории
+        * `MP` - Северные Марианские острова
+        * `TT` - Тринидад и Тобаго
+        * `AE` - Объединенные Арабские Эмираты
+        * `US` - Соединенные Штаты Америки
+        * `WF` - Уоллис и Футуна
+        * `TC` - Острова Теркс и Кайкос
+        * `UM` - Внешние малые острова США
+        * `IO` - Британская территория в Индийском океане
+        * `HM` - Остров Херд и Острова Макдоналд
+        * `GS` - Южная Георгия и Южные Сандвичевы острова
+        * `VG` - Виргинские Острова (Британские)
+        * `VI` - Виргинские Острова (США)
+        * `MF` - Святого Мартина (Остров, французская часть)
+        * `SX` - Святого Мартина (Остров, нидерландская часть)
+        * `SJ` - Шпицберген и Ян-Майен
+        * `CD` - Конго (Демократическая Республика)
+        * `FM` - Микронезия (Федеративные Штаты)
+        * `CC` - Кокосовые (Килинг) острова
+        * `FK` - Фолклендские (Мальвинские) острова
+        * `SH` - Святой Елены, Вознесения и Тристан-да-Кунья (Острова)
+        * `SM` - Сан - Марино
+        * `PS` - Палестина, Государство
+        * `BQ` - Бонайре, Синт-Эстатиус и Саба
+        * `BF` - Буркина-Фасо
+        * `CV` - Кабо-Верде
+        * `CR` - Коста-Рика
+        * `GW` - Гвинея-Бисау
+        * `PR` - Пуэрто-Рико
+        * `BL` - Сен-Бартельми
+        * `LC` - Сент-Люсия
+        * `SL` - Сьерра-Леоне
+        * `LK` - Шри-Ланка
+        * `TL` - Тимор-Лесте
+        * `PG` - Папуа-Новая Гвинея
+        * `KN` - Сент-Китс и Невис
+        * `PM` - Сен-Пьер и Микелон
+        * `VC` - Сент-Винсент и Гренадины
+        * `ST` - Сан-Томе и Принсипи
+        * `CI` - Кот-д'Ивуар
+    Direction:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        name:
+          type: string
+          title: Название
+          maxLength: 255
+        slug:
+          type: string
+          description: Оставьте пустым — сгенерируется автоматически из названия (транслитерацией).
+          maxLength: 255
+          pattern: ^[-a-zA-Z0-9_]+$
+        icon:
+          type: string
+          title: Иконка
+          maxLength: 64
+        order:
+          type: integer
+          maximum: 9223372036854775807
+          minimum: 0
+          format: int64
+          title: Порядок
+        audience:
+          type: string
+          description: Оставьте пустым — сгенерируется автоматически из названия (транслитерацией).
+          readOnly: true
+      required:
+      - audience
+      - id
+      - name
+    DirectionRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          title: Название
+          maxLength: 255
+        slug:
+          type: string
+          description: Оставьте пустым — сгенерируется автоматически из названия (транслитерацией).
+          maxLength: 255
+          pattern: ^[-a-zA-Z0-9_]+$
+        icon:
+          type: string
+          title: Иконка
+          maxLength: 64
+        order:
+          type: integer
+          maximum: 9223372036854775807
+          minimum: 0
+          format: int64
+          title: Порядок
+      required:
+      - name
+    DocTypeEnum:
+      enum:
+      - registration
+      - declaration
+      - certificate
+      - state_registration
+      - exemption
+      - ifu
+      - manual
+      - passport
+      - quality
+      - other
+      type: string
+      description: |-
+        * `registration` - Регистрационное удостоверение (РУ)
+        * `declaration` - Декларация о соответствии
+        * `certificate` - Сертификат соответствия
+        * `state_registration` - Свидетельство о госрегистрации (СГР)
+        * `exemption` - Отказное письмо
+        * `ifu` - Инструкция по применению
+        * `manual` - Руководство по эксплуатации
+        * `passport` - Паспорт изделия
+        * `quality` - Сертификат качества / анализа
+        * `other` - Другое
+    Document:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        name:
+          type: string
+          title: Название (внутреннее)
+          description: Для внутреннего поиска и идентификации в PIM. Покупателю не
+            показывается.
+          maxLength: 255
+        doc_type:
+          allOf:
+          - $ref: '#/components/schemas/DocTypeEnum'
+          title: Тип документа
+        doc_type_display:
+          type: string
+          readOnly: true
+        number:
+          type: string
+          title: Номер
+          maxLength: 128
+        issuing_authority:
+          type: string
+          title: Кем выдан
+          description: Орган или организация, выдавшая документ (например, Росздравнадзор).
+          maxLength: 255
+        issued_date:
+          type: string
+          format: date
+          nullable: true
+          title: Дата выдачи
+        valid_until:
+          type: string
+          format: date
+          nullable: true
+          title: Действует до
+          description: Оставьте пустым, если срок не указан. Для бессрочных отметьте
+            «Бессрочный».
+        is_perpetual:
+          type: boolean
+          title: Бессрочный
+        status:
+          type: string
+          readOnly: true
+        status_display:
+          type: string
+          readOnly: true
+        file:
+          type: string
+          format: uri
+          title: Файл (PDF)
+          pattern: (?:pdf)$
+      required:
+      - doc_type_display
+      - file
+      - id
+      - status
+      - status_display
+    DocumentRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          title: Название (внутреннее)
+          description: Для внутреннего поиска и идентификации в PIM. Покупателю не
+            показывается.
+          maxLength: 255
+        doc_type:
+          allOf:
+          - $ref: '#/components/schemas/DocTypeEnum'
+          title: Тип документа
+        number:
+          type: string
+          title: Номер
+          maxLength: 128
+        issuing_authority:
+          type: string
+          title: Кем выдан
+          description: Орган или организация, выдавшая документ (например, Росздравнадзор).
+          maxLength: 255
+        issued_date:
+          type: string
+          format: date
+          nullable: true
+          title: Дата выдачи
+        valid_until:
+          type: string
+          format: date
+          nullable: true
+          title: Действует до
+          description: Оставьте пустым, если срок не указан. Для бессрочных отметьте
+            «Бессрочный».
+        is_perpetual:
+          type: boolean
+          title: Бессрочный
+        file:
+          type: string
+          format: binary
+          title: Файл (PDF)
+          pattern: (?:pdf)$
+      required:
+      - file
+    PaginatedAudienceList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/Audience'
+    PaginatedBrandList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/Brand'
+    PaginatedCategoryList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/Category'
+    PaginatedCharacteristicList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/Characteristic'
+    PaginatedDirectionList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/Direction'
+    PaginatedDocumentList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/Document'
+    PaginatedProductListList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/ProductList'
+    PatchedAudienceRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          title: Название
+          maxLength: 255
+        slug:
+          type: string
+          description: Оставьте пустым — сгенерируется автоматически из названия (транслитерацией).
+          maxLength: 255
+          pattern: ^[-a-zA-Z0-9_]+$
+        icon:
+          type: string
+          title: Иконка
+          description: Идентификатор иконки для меню магазина (опционально).
+          maxLength: 64
+        order:
+          type: integer
+          maximum: 9223372036854775807
+          minimum: 0
+          format: int64
+          title: Порядок
+    PatchedBrandRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          title: Название
+          maxLength: 255
+        slug:
+          type: string
+          description: Оставьте пустым — сгенерируется автоматически из названия (транслитерацией).
+          maxLength: 255
+          pattern: ^[-a-zA-Z0-9_]+$
+        logo:
+          type: string
+          format: binary
+          nullable: true
+          title: Логотип
+          description: Растровое изображение или SVG. Для логотипов предпочтителен
+            SVG — он чёткий на любом размере.
+          pattern: (?:svg|png|jpg|jpeg|webp|gif)$
+        description:
+          type: string
+          title: Описание
+    PatchedCategoryRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          title: Название
+          maxLength: 255
+        slug:
+          type: string
+          description: Оставьте пустым — сгенерируется автоматически из названия (транслитерацией).
+          maxLength: 255
+          pattern: ^[-a-zA-Z0-9_]+$
+        parent:
+          type: integer
+          nullable: true
+          title: Родительская категория
+    PatchedCharacteristicRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          title: Название
+          maxLength: 255
+        code:
+          type: string
+          title: Код
+          description: Машинный код для API. Оставьте пустым — сгенерируется из названия.
+          maxLength: 128
+          pattern: ^[-a-zA-Z0-9_]+$
+        type:
+          allOf:
+          - $ref: '#/components/schemas/TypeEnum'
+          title: Тип
+        unit:
+          type: string
+          title: Единица измерения
+          description: Напр. 'мм', 'кг'. Имеет смысл для числовых характеристик.
+          maxLength: 32
+        is_global:
+          type: boolean
+          title: Общая характеристика
+          description: Показывать у всех товаров независимо от категории. Если выключено
+            — только у товаров категорий из списка ниже.
+    PatchedDirectionRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          title: Название
+          maxLength: 255
+        slug:
+          type: string
+          description: Оставьте пустым — сгенерируется автоматически из названия (транслитерацией).
+          maxLength: 255
+          pattern: ^[-a-zA-Z0-9_]+$
+        icon:
+          type: string
+          title: Иконка
+          maxLength: 64
+        order:
+          type: integer
+          maximum: 9223372036854775807
+          minimum: 0
+          format: int64
+          title: Порядок
+    PatchedDocumentRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          title: Название (внутреннее)
+          description: Для внутреннего поиска и идентификации в PIM. Покупателю не
+            показывается.
+          maxLength: 255
+        doc_type:
+          allOf:
+          - $ref: '#/components/schemas/DocTypeEnum'
+          title: Тип документа
+        number:
+          type: string
+          title: Номер
+          maxLength: 128
+        issuing_authority:
+          type: string
+          title: Кем выдан
+          description: Орган или организация, выдавшая документ (например, Росздравнадзор).
+          maxLength: 255
+        issued_date:
+          type: string
+          format: date
+          nullable: true
+          title: Дата выдачи
+        valid_until:
+          type: string
+          format: date
+          nullable: true
+          title: Действует до
+          description: Оставьте пустым, если срок не указан. Для бессрочных отметьте
+            «Бессрочный».
+        is_perpetual:
+          type: boolean
+          title: Бессрочный
+        file:
+          type: string
+          format: binary
+          title: Файл (PDF)
+          pattern: (?:pdf)$
+    PatchedProductWriteRequest:
+      type: object
+      description: |-
+        Запись товара по токену. Покрывает постоянные поля, категорию, бренд и
+        привязку документов. Изображения и значения категорийных характеристик
+        в этой версии управляются через админку.
+      properties:
+        name:
+          type: string
+          minLength: 1
+          title: Название
+          maxLength: 255
+        slug:
+          type: string
+          description: Оставьте пустым — сгенерируется автоматически из названия (транслитерацией).
+          maxLength: 255
+          pattern: ^[-a-zA-Z0-9_]+$
+        short_description:
+          type: string
+          title: Краткое описание
+        full_description:
+          type: string
+          title: Полное описание (HTML)
+          description: Поддерживает HTML, редактируется через визуальный редактор.
+        manufacturer_sku:
+          type: string
+          title: Артикул производителя
+          maxLength: 128
+        gtin:
+          type: string
+          title: Штрих-код (GTIN)
+          description: 'Глобальный номер товара: EAN-8/13, UPC-A (12) или GTIN-14.
+            Только цифры.'
+          maxLength: 14
+        tnved_code:
+          type: string
+          title: Код ТН ВЭД
+          description: Код товарной номенклатуры ВЭД ЕАЭС (до 10 цифр). Пока вводится
+            вручную.
+          maxLength: 10
+        country_of_origin:
+          oneOf:
+          - $ref: '#/components/schemas/CountryOfOriginEnum'
+          - $ref: '#/components/schemas/BlankEnum'
+        category:
+          type: integer
+          title: Категория
+        brand:
+          type: integer
+          nullable: true
+          title: Бренд
+        audiences:
+          type: array
+          items:
+            type: integer
+            title: Аудитории
+          title: Аудитории
+        directions:
+          type: array
+          items:
+            type: integer
+            title: Направления
+          title: Направления
+        gross_width_mm:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+          nullable: true
+          title: Брутто-ширина, мм
+        gross_height_mm:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+          nullable: true
+          title: Брутто-высота, мм
+        gross_depth_mm:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+          nullable: true
+          title: Брутто-глубина, мм
+        gross_weight_kg:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,7}(?:\.\d{0,3})?$
+          nullable: true
+          title: Брутто-масса, кг
+        documents:
+          type: array
+          items:
+            type: integer
+            title: Документы
+          title: Документы
+        group:
+          type: integer
+          nullable: true
+          title: Серия (группа вариантов)
+        group_order:
+          type: integer
+          maximum: 9223372036854775807
+          minimum: 0
+          format: int64
+          title: Порядок в серии
+          description: Порядок отображения в переключателе вариантов.
+        variant_label:
+          type: string
+          title: Подпись варианта
+          description: Короткая подпись для переключателя. Пусто — берётся название
+            товара.
+          maxLength: 255
+    ProductDetail:
+      type: object
+      description: Полная карточка товара для отображения в каталоге.
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        sku:
+          type: string
+          readOnly: true
+          nullable: true
+          title: Артикул PIM
+          description: Внутренний идентификатор товара в PIM. Присваивается автоматически
+            и не меняется.
+        name:
+          type: string
+          title: Название
+          maxLength: 255
+        slug:
+          type: string
+          description: Оставьте пустым — сгенерируется автоматически из названия (транслитерацией).
+          maxLength: 255
+          pattern: ^[-a-zA-Z0-9_]+$
+        short_description:
+          type: string
+          title: Краткое описание
+        full_description:
+          type: string
+          title: Полное описание (HTML)
+          description: Поддерживает HTML, редактируется через визуальный редактор.
+        manufacturer_sku:
+          type: string
+          title: Артикул производителя
+          maxLength: 128
+        gtin:
+          type: string
+          title: Штрих-код (GTIN)
+          description: 'Глобальный номер товара: EAN-8/13, UPC-A (12) или GTIN-14.
+            Только цифры.'
+          maxLength: 14
+        tnved_code:
+          type: string
+          title: Код ТН ВЭД
+          description: Код товарной номенклатуры ВЭД ЕАЭС (до 10 цифр). Пока вводится
+            вручную.
+          maxLength: 10
+        country_of_origin:
+          type: object
+          nullable: true
+          properties:
+            code:
+              type: string
+            name:
+              type: string
+          readOnly: true
+        brand:
+          allOf:
+          - $ref: '#/components/schemas/Brand'
+          readOnly: true
+        category:
+          allOf:
+          - $ref: '#/components/schemas/Category'
+          readOnly: true
+        audiences:
+          type: array
+          items:
+            $ref: '#/components/schemas/Audience'
+          readOnly: true
+        directions:
+          type: array
+          items:
+            $ref: '#/components/schemas/Direction'
+          readOnly: true
+        logistics:
+          type: object
+          properties:
+            gross_width_mm:
+              type: integer
+              nullable: true
+            gross_height_mm:
+              type: integer
+              nullable: true
+            gross_depth_mm:
+              type: integer
+              nullable: true
+            gross_weight_kg:
+              type: number
+              nullable: true
+          readOnly: true
+        images:
+          type: array
+          items:
+            $ref: '#/components/schemas/ProductImage'
+          readOnly: true
+        characteristics:
+          type: array
+          items:
+            type: object
+          readOnly: true
+        documents:
+          type: array
+          items:
+            $ref: '#/components/schemas/Document'
+          readOnly: true
+        group:
+          type: object
+          nullable: true
+          readOnly: true
+        price_from:
+          type: number
+          format: double
+          readOnly: true
+        offers:
+          type: array
+          items:
+            type: object
+          readOnly: true
+        courses:
+          type: array
+          items:
+            type: object
+          readOnly: true
+      required:
+      - audiences
+      - brand
+      - category
+      - characteristics
+      - country_of_origin
+      - courses
+      - directions
+      - documents
+      - group
+      - id
+      - images
+      - logistics
+      - name
+      - offers
+      - price_from
+      - sku
+    ProductImage:
+      type: object
+      properties:
+        image:
+          type: string
+          format: uri
+          title: Изображение
+        alt:
+          type: string
+          title: Alt-текст
+          maxLength: 255
+        order:
+          type: integer
+          maximum: 9223372036854775807
+          minimum: 0
+          format: int64
+          title: Порядок
+      required:
+      - image
+    ProductList:
+      type: object
+      description: Облегчённая выдача для списков каталога.
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        sku:
+          type: string
+          readOnly: true
+          nullable: true
+          title: Артикул PIM
+          description: Внутренний идентификатор товара в PIM. Присваивается автоматически
+            и не меняется.
+        manufacturer_sku:
+          type: string
+          title: Артикул производителя
+          maxLength: 128
+        name:
+          type: string
+          title: Название
+          maxLength: 255
+        slug:
+          type: string
+          description: Оставьте пустым — сгенерируется автоматически из названия (транслитерацией).
+          maxLength: 255
+          pattern: ^[-a-zA-Z0-9_]+$
+        short_description:
+          type: string
+          title: Краткое описание
+        brand:
+          type: string
+          readOnly: true
+        category:
+          type: string
+          description: Оставьте пустым — сгенерируется автоматически из названия (транслитерацией).
+          readOnly: true
+        audiences:
+          type: array
+          items:
+            type: string
+            description: Оставьте пустым — сгенерируется автоматически из названия
+              (транслитерацией).
+          readOnly: true
+        directions:
+          type: array
+          items:
+            type: string
+            description: Оставьте пустым — сгенерируется автоматически из названия
+              (транслитерацией).
+          readOnly: true
+        thumbnail:
+          type: string
+          format: uri
+          readOnly: true
+        price_from:
+          type: number
+          format: double
+          readOnly: true
+      required:
+      - audiences
+      - brand
+      - category
+      - directions
+      - id
+      - name
+      - price_from
+      - sku
+      - thumbnail
+    ProductWrite:
+      type: object
+      description: |-
+        Запись товара по токену. Покрывает постоянные поля, категорию, бренд и
+        привязку документов. Изображения и значения категорийных характеристик
+        в этой версии управляются через админку.
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        name:
+          type: string
+          title: Название
+          maxLength: 255
+        slug:
+          type: string
+          description: Оставьте пустым — сгенерируется автоматически из названия (транслитерацией).
+          maxLength: 255
+          pattern: ^[-a-zA-Z0-9_]+$
+        short_description:
+          type: string
+          title: Краткое описание
+        full_description:
+          type: string
+          title: Полное описание (HTML)
+          description: Поддерживает HTML, редактируется через визуальный редактор.
+        manufacturer_sku:
+          type: string
+          title: Артикул производителя
+          maxLength: 128
+        gtin:
+          type: string
+          title: Штрих-код (GTIN)
+          description: 'Глобальный номер товара: EAN-8/13, UPC-A (12) или GTIN-14.
+            Только цифры.'
+          maxLength: 14
+        tnved_code:
+          type: string
+          title: Код ТН ВЭД
+          description: Код товарной номенклатуры ВЭД ЕАЭС (до 10 цифр). Пока вводится
+            вручную.
+          maxLength: 10
+        country_of_origin:
+          oneOf:
+          - $ref: '#/components/schemas/CountryOfOriginEnum'
+          - $ref: '#/components/schemas/BlankEnum'
+        category:
+          type: integer
+          title: Категория
+        brand:
+          type: integer
+          nullable: true
+          title: Бренд
+        audiences:
+          type: array
+          items:
+            type: integer
+            title: Аудитории
+          title: Аудитории
+        directions:
+          type: array
+          items:
+            type: integer
+            title: Направления
+          title: Направления
+        gross_width_mm:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+          nullable: true
+          title: Брутто-ширина, мм
+        gross_height_mm:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+          nullable: true
+          title: Брутто-высота, мм
+        gross_depth_mm:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+          nullable: true
+          title: Брутто-глубина, мм
+        gross_weight_kg:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,7}(?:\.\d{0,3})?$
+          nullable: true
+          title: Брутто-масса, кг
+        documents:
+          type: array
+          items:
+            type: integer
+            title: Документы
+          title: Документы
+        group:
+          type: integer
+          nullable: true
+          title: Серия (группа вариантов)
+        group_order:
+          type: integer
+          maximum: 9223372036854775807
+          minimum: 0
+          format: int64
+          title: Порядок в серии
+          description: Порядок отображения в переключателе вариантов.
+        variant_label:
+          type: string
+          title: Подпись варианта
+          description: Короткая подпись для переключателя. Пусто — берётся название
+            товара.
+          maxLength: 255
+      required:
+      - category
+      - id
+      - name
+    ProductWriteRequest:
+      type: object
+      description: |-
+        Запись товара по токену. Покрывает постоянные поля, категорию, бренд и
+        привязку документов. Изображения и значения категорийных характеристик
+        в этой версии управляются через админку.
+      properties:
+        name:
+          type: string
+          minLength: 1
+          title: Название
+          maxLength: 255
+        slug:
+          type: string
+          description: Оставьте пустым — сгенерируется автоматически из названия (транслитерацией).
+          maxLength: 255
+          pattern: ^[-a-zA-Z0-9_]+$
+        short_description:
+          type: string
+          title: Краткое описание
+        full_description:
+          type: string
+          title: Полное описание (HTML)
+          description: Поддерживает HTML, редактируется через визуальный редактор.
+        manufacturer_sku:
+          type: string
+          title: Артикул производителя
+          maxLength: 128
+        gtin:
+          type: string
+          title: Штрих-код (GTIN)
+          description: 'Глобальный номер товара: EAN-8/13, UPC-A (12) или GTIN-14.
+            Только цифры.'
+          maxLength: 14
+        tnved_code:
+          type: string
+          title: Код ТН ВЭД
+          description: Код товарной номенклатуры ВЭД ЕАЭС (до 10 цифр). Пока вводится
+            вручную.
+          maxLength: 10
+        country_of_origin:
+          oneOf:
+          - $ref: '#/components/schemas/CountryOfOriginEnum'
+          - $ref: '#/components/schemas/BlankEnum'
+        category:
+          type: integer
+          title: Категория
+        brand:
+          type: integer
+          nullable: true
+          title: Бренд
+        audiences:
+          type: array
+          items:
+            type: integer
+            title: Аудитории
+          title: Аудитории
+        directions:
+          type: array
+          items:
+            type: integer
+            title: Направления
+          title: Направления
+        gross_width_mm:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+          nullable: true
+          title: Брутто-ширина, мм
+        gross_height_mm:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+          nullable: true
+          title: Брутто-высота, мм
+        gross_depth_mm:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+          nullable: true
+          title: Брутто-глубина, мм
+        gross_weight_kg:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,7}(?:\.\d{0,3})?$
+          nullable: true
+          title: Брутто-масса, кг
+        documents:
+          type: array
+          items:
+            type: integer
+            title: Документы
+          title: Документы
+        group:
+          type: integer
+          nullable: true
+          title: Серия (группа вариантов)
+        group_order:
+          type: integer
+          maximum: 9223372036854775807
+          minimum: 0
+          format: int64
+          title: Порядок в серии
+          description: Порядок отображения в переключателе вариантов.
+        variant_label:
+          type: string
+          title: Подпись варианта
+          description: Короткая подпись для переключателя. Пусто — берётся название
+            товара.
+          maxLength: 255
+      required:
+      - category
+      - name
+    TypeEnum:
+      enum:
+      - single_select
+      - multi_select
+      - number
+      - text
+      - boolean
+      type: string
+      description: |-
+        * `single_select` - Список (единичный выбор)
+        * `multi_select` - Список (множественный выбор)
+        * `number` - Числовое поле
+        * `text` - Текстовое поле
+        * `boolean` - Булева (да/нет)
+  securitySchemes:
+    cookieAuth:
+      type: apiKey
+      in: cookie
+      name: sessionid
+    tokenAuth:
+      type: apiKey
+      in: header
+      name: Authorization
+      description: Token-based authentication with required prefix "Token"
