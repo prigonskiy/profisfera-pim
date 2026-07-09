@@ -88,7 +88,11 @@ def category_path(cat_id, cmap):
 
 
 def descendant_ids(root_id, cmap):
-    """root + все потомки (по карте категорий)."""
+    """root + все потомки по УЖЕ загруженной карте категорий (bulk-путь без запросов).
+
+    Для одиночного вызова используйте utils.category_descendant_ids (один SQL
+    через MPTT). Этот вариант нужен, когда карта категорий уже собрана рядом.
+    """
     children = {}
     for cid, (_, pid) in cmap.items():
         children.setdefault(pid, []).append(cid)
@@ -103,8 +107,12 @@ def descendant_ids(root_id, cmap):
 
 
 def category_with_descendants(root_id):
-    """Множество id: категория + все её потомки (для экспорта по категории)."""
-    return descendant_ids(root_id, _category_map())
+    """Id: категория + все её потомки (для экспорта по категории).
+
+    Единый одиночный вход — через MPTT (utils.category_descendant_ids).
+    """
+    from .utils import category_descendant_ids
+    return category_descendant_ids(root_id)
 
 
 def category_labels():

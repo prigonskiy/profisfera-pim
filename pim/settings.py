@@ -68,6 +68,7 @@ INSTALLED_APPS = [
     # third-party
     'rest_framework',            # REST API
     'rest_framework.authtoken',  # токены для записи
+    'drf_spectacular',           # OpenAPI 3 схема + Swagger UI (контракт для интеграции)
     'adminsortable2',   # drag-and-drop сортировка в админке
     'mptt',             # дерево категорий (вложенность + перетаскивание)
     'tinymce',          # визуальный HTML-редактор
@@ -108,6 +109,8 @@ REST_FRAMEWORK = {
     "DEFAULT_PERMISSION_CLASSES": [
         "catalog.permissions.IsStaffOrReadOnly",
     ],
+    # генератор OpenAPI-схемы (эндпоинты /api/schema/ и /api/docs/)
+    "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
     "DEFAULT_PAGINATION_CLASS": "rest_framework.pagination.PageNumberPagination",
     "PAGE_SIZE": 20,
     # Мягкая защита от скрейпинга/DoS. Ставки настраиваются в .env без правки кода.
@@ -119,6 +122,23 @@ REST_FRAMEWORK = {
         "anon": os.getenv("THROTTLE_ANON", "300/min"),
         "user": os.getenv("THROTTLE_USER", "1000/min"),
     },
+}
+
+# Метаданные OpenAPI-схемы. Схема — машиночитаемый контракт каталога для
+# интеграции (напр. с Ensi): GET /api/schema/ (YAML), Swagger UI на /api/docs/.
+SPECTACULAR_SETTINGS = {
+    "TITLE": "ProfiSfera PIM — Catalog API",
+    "DESCRIPTION": (
+        "Headless-каталог ProfiSfera: товары, категории, характеристики, "
+        "бренды, документы, навигационные фасеты, группировки вариантов и "
+        "обучение. Публичное чтение; запись — по токену staff. Ключ интеграции "
+        "контента — внутренний sku. Инкрементальная выборка — параметр "
+        "updated_since. Коммерческий слой (цены/остатки/клиенты) в контракт не "
+        "входит."
+    ),
+    "VERSION": "1.0.0",
+    "SERVE_INCLUDE_SCHEMA": False,
+    "COMPONENT_SPLIT_REQUEST": True,
 }
 
 MIDDLEWARE = [

@@ -613,3 +613,69 @@ class ClientModelTests(TestCase):
         dist = LegalEntity.objects.create(inn="7700000001", name="Дистр", segment="distributors")
         ClientMembership.objects.create(client=c, legal_entity=dist, status="pending")
         self.assertEqual(c.channels(), {"individuals", "clinics"})
+
+
+class ContentContractTests(TestCase):
+    """Инварианты контентного контракта для внешней интеграции (напр. Ensi):
+    единый ключ sku, выборка категории с потомками, целостность серии,
+    стабильная форма публичной карточки."""
+
+    def setUp(self):
+        self.client = APIClient()
+        self.root = Category.objects.create(name="Хирургия и имплантология")
+        self.child = Category.objects.create(name="Мембраны", parent=self.root)
+        self.p = Product.objects.create(name="CollOss Мембрана 15×20", category=self.child)
+
+    def test_lookup_by_sku_action(self):
+        r = self.client.get(f"/api/products/by-sku/{self.p.sku}/")
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(r.data["sku"], self.p.sku)
+        self.assertEqual(r.data["slug"], self.p.slug)
+
+    def test_list_filter_sku(self):
+        r = self.client.get(f"/api/products/?sku={self.p.sku}")
+        self.assertEqual(r.status_code, 200)
+        slugs = [item["slug"] for item in r.data["results"]]
+        self.assertIn(self.p.slug, slugs)
+
+    def test_category_filter_includes_descendants(self):
+        # товар лежит в подкатегории — фильтр по корню обязан его вернуть (MPTT-потомки)
+        r = self.client.get(f"/api/products/?category={self.root.id}")
+        self.assertEqual(r.status_code, 200)
+        slugs = [item["slug"] for item in r.data["results"]]
+        self.assertIn(self.p.slug, slugs)
+
+    def test_detail_shape_has_content_keys(self):
+        r = self.client.get(f"/api/products/{self.p.slug}/")
+        self.assertEqual(r.status_code, 200)
+        for key in ("sku", "name", "slug", "category", "characteristics",
+                    "documents", "images", "group", "audiences", "directions"):
+            self.assertIn(key, r.data)
+
+
+class GroupLevelIntegrityTests(TestCase):
+    """Уровень серии должен принадлежать выбранной серии товара."""
+
+    def setUp(self):
+        from catalog.models import ProductGroup, GroupLevel
+        self.cat = Category.objects.create(name="Импланты")
+        self.g1 = ProductGroup.objects.create(name="Серия A")
+        self.g2 = ProductGroup.objects.create(name="Серия B")
+        self.l1 = GroupLevel.objects.create(group=self.g1, name="Диаметр")
+        self.l2 = GroupLevel.objects.create(group=self.g2, name="Длина")
+
+    def test_level_from_other_series_rejected(self):
+        from django.core.exceptions import ValidationError
+        p = Product(name="Имплант X", category=self.cat, group=self.g1, group_level=self.l2)
+        with self.assertRaises(ValidationError):
+            p.clean()
+
+    def test_level_without_series_rejected(self):
+        from django.core.exceptions import ValidationError
+        p = Product(name="Имплант Y", category=self.cat, group=None, group_level=self.l1)
+        with self.assertRaises(ValidationError):
+            p.clean()
+
+    def test_matching_level_ok(self):
+        p = Product(name="Имплант Z", category=self.cat, group=self.g1, group_level=self.l1)
+        p.clean()  # не должно бросать

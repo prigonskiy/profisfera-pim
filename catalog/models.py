@@ -1,3 +1,4 @@
+from django.core.exceptions import ValidationError
 from django.core.validators import FileExtensionValidator
 from django.db import models, transaction
 from mptt.models import MPTTModel, TreeForeignKey
@@ -628,6 +629,19 @@ class Product(models.Model):
 
     def __str__(self):
         return self.name
+
+    def clean(self):
+        super().clean()
+        # уровень имеет смысл только внутри своей серии
+        if self.group_level_id and not self.group_id:
+            raise ValidationError({
+                "group_level": "Уровень указан без серии — сначала выберите серию (группу вариантов)."
+            })
+        if self.group_level_id and self.group_id and self.group_level.group_id != self.group_id:
+            raise ValidationError({
+                "group_level": "Выбранный уровень принадлежит другой серии. "
+                               "Выберите уровень из указанной серии."
+            })
 
     def save(self, *args, **kwargs):
         if not self.slug:

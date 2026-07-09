@@ -7,8 +7,11 @@ from rest_framework.exceptions import NotFound, ParseError
 from rest_framework.generics import get_object_or_404
 from rest_framework.response import Response
 
+from drf_spectacular.utils import OpenApiParameter, extend_schema, extend_schema_view
+
 from .models import Audience, Brand, Category, Characteristic, Direction, Document, Product
 from .permissions import IsStaffOrReadOnly
+from .utils import category_descendant_ids
 from .serializers import (
     AudienceMenuSerializer,
     AudienceSerializer,
@@ -24,19 +27,8 @@ from .serializers import (
 )
 
 
-def category_with_descendants(category_id):
-    """Возвращает id категории и всех вложенных в неё подкатегорий."""
-    ids = [category_id]
-    frontier = [category_id]
-    while frontier:
-        children = list(
-            Category.objects.filter(parent_id__in=frontier)
-            .exclude(id__in=ids)
-            .values_list("id", flat=True)
-        )
-        ids.extend(children)
-        frontier = children
-    return ids
+# «Категория с потомками» вынесена в utils.category_descendant_ids
+# (единая MPTT-реализация вместо двух прежних).
 
 
 class BrandViewSet(viewsets.ModelViewSet):
@@ -110,6 +102,32 @@ class DirectionViewSet(viewsets.ModelViewSet):
         return qs
 
 
+@extend_schema_view(
+    list=extend_schema(
+        summary="Список товаров",
+        description=(
+            "Публичный список карточек. Фильтры комбинируются по И. Внутри "
+            "мультизначных фасетов (audience/direction) значения работают по ИЛИ."
+        ),
+        parameters=[
+            OpenApiParameter("category", int, description="ID категории (включая всех потомков)."),
+            OpenApiParameter("brand", int, description="ID бренда."),
+            OpenApiParameter("audience", str, description="Slug(и) аудитории через запятую."),
+            OpenApiParameter("direction", str, description="Slug(и) направления через запятую."),
+            OpenApiParameter("sku", str, description="Точный внутренний sku PIM (ключ интеграции контента)."),
+            OpenApiParameter("sku__in", str, description="Несколько sku через запятую."),
+            OpenApiParameter(
+                "updated_since", str,
+                description="ISO-8601 дата-время (URL-кодировать). Только изменённые после момента — для инкрементальной синхронизации.",
+            ),
+            OpenApiParameter("search", str, description="Поиск по названию/артикулу производителя/краткому описанию."),
+            OpenApiParameter("ordering", str, description="Сортировка: name | created_at | updated_at (с «-» — по убыванию)."),
+            OpenApiParameter("external_id", str, description="Код ERP продавца (коммерческий слой; для контента используйте sku)."),
+            OpenApiParameter("external_id__in", str, description="Несколько кодов ERP через запятую."),
+        ],
+    ),
+    retrieve=extend_schema(summary="Карточка товара", description="Полная карточка по slug или sku."),
+)
 class ProductViewSet(viewsets.ModelViewSet):
     permission_classes = [IsStaffOrReadOnly]
     lookup_field = "slug"
@@ -145,7 +163,7 @@ class ProductViewSet(viewsets.ModelViewSet):
         category = self.request.query_params.get("category")
         if category:
             try:
-                ids = category_with_descendants(int(category))
+                ids = category_descendant_ids(int(category))
                 qs = qs.filter(category_id__in=ids)
             except (ValueError, TypeError):
                 qs = qs.none()
@@ -164,7 +182,22 @@ class ProductViewSet(viewsets.ModelViewSet):
             slugs = [s.strip() for s in direction.split(",") if s.strip()]
             qs = qs.filter(directions__slug__in=slugs).distinct()
 
-        # сопоставление с внешними системами: по коду ERP из торговых предложений
+        # сопоставление контента с внешними системами — по внутреннему sku PIM.
+        # sku стабилен, уникален и не переиспользуется; это рекомендованный ключ
+        # интеграции контента (в отличие от erp_code ниже — он из коммерческого слоя).
+        sku = self.request.query_params.get("sku")
+        if sku:
+            qs = qs.filter(sku=sku)
+        skus = self.request.query_params.get("sku__in")
+        if skus:
+            values = [s.strip() for s in skus.split(",") if s.strip()]
+            qs = qs.filter(sku__in=values)
+
+        # сопоставление с внешними системами: по коду ERP из торговых предложений.
+        # ВНИМАНИЕ: erp_code относится к коммерческому слою (продавец/остатки) и
+        # сейчас доступен в публичном чтении. Для интеграции контента используйте
+        # sku; целесообразность публичной отдачи erp_code — открытый вопрос
+        # (см. INTEGRATION.md).
         external_id = self.request.query_params.get("external_id")
         if external_id:
             qs = qs.filter(offers__erp_code=external_id).distinct()
@@ -190,10 +223,23 @@ class ProductViewSet(viewsets.ModelViewSet):
     @action(
         detail=False,
         methods=["get"],
+        url_path=r"by-sku/(?P<sku>[^/]+)",
+    )
+    def by_sku(self, request, sku=None):
+        """Полная карточка товара по внутреннему sku PIM (ключ интеграции контента)."""
+        product = self.get_queryset().filter(sku=sku).first()
+        if product is None:
+            raise NotFound("Товар с таким sku не найден.")
+        serializer = ProductDetailSerializer(product, context={"request": request})
+        return Response(serializer.data)
+
+    @action(
+        detail=False,
+        methods=["get"],
         url_path=r"by-external-id/(?P<code>[^/]+)",
     )
     def by_external_id(self, request, code=None):
-        """Отдать полную карточку товара по коду сопоставления из 1С."""
+        """Полная карточка по коду ERP продавца (коммерческий слой; для контента см. by-sku)."""
         product = self.get_queryset().filter(offers__erp_code=code).distinct().first()
         if product is None:
             raise NotFound("Товар с таким кодом сопоставления не найден.")

@@ -22,6 +22,23 @@ def unique_slugify(instance, value, slug_field_name="slug"):
     return candidate
 
 
+def category_descendant_ids(category_id):
+    """Id категории и всех её потомков одним запросом (через MPTT).
+
+    Единая реализация «категория с потомками». Раньше их было две — обход
+    parent_id в API и обход карты категорий в импорте/экспорте; обе заменены
+    этой, опирающейся на дерево MPTT (поля lft/rght).
+
+    Category импортируется локально: utils подключается из models.py, и импорт
+    модели на уровне модуля дал бы циклическую зависимость.
+    """
+    from .models import Category
+    node = Category.objects.filter(pk=category_id).first()
+    if node is None:
+        return [category_id]
+    return list(node.get_descendants(include_self=True).values_list("id", flat=True))
+
+
 def validate_gtin(value):
     """
     Проверяет штрих-код по стандарту GTIN: только цифры, длина 8/12/13/14,

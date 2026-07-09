@@ -3,6 +3,7 @@ from django.conf.urls.static import static
 from django.contrib import admin
 from django.urls import include, path
 from django.views.generic import RedirectView
+from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
 from rest_framework.routers import DefaultRouter
 
 from catalog.admin_metrics import server_metrics, rebuild_storefront_view
@@ -38,6 +39,9 @@ urlpatterns = [
     path("api/auth/logout/", LogoutView.as_view(), name="client-logout"),
     path("api/auth/me/", MeView.as_view(), name="client-me"),
     path("api/products/<slug:slug>/pricing/", PricingView.as_view(), name="product-pricing"),
+    # OpenAPI-схема и интерактивная документация (контракт каталога для интеграции)
+    path("api/schema/", SpectacularAPIView.as_view(), name="schema"),
+    path("api/docs/", SpectacularSwaggerView.as_view(url_name="schema"), name="swagger-ui"),
     path("api/", include(router.urls)),
     path("api-auth/", include("rest_framework.urls")),  # вход/выход в браузерном API
     path("", RedirectView.as_view(url="/api/", permanent=False)),
