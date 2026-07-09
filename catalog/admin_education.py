@@ -1,4 +1,4 @@
-"""Админка обучения. Курс → модули (инлайн). Слайды теперь — zip-пакет iSpring."""
+"""Админка обучения. Курс → модули (инлайн). Слайды и лонгрид — zip-пакет iSpring."""
 from django.contrib import admin
 from django.db import models as dj_models
 from tinymce.widgets import TinyMCE
@@ -10,6 +10,9 @@ class CourseModuleInline(admin.TabularInline):
     model = CourseModule
     extra = 0
     fields = ("kind", "title", "video_url", "package", "order", "is_active")
+
+    class Media:
+        js = ("catalog/js/module_kind.js",)
 
 
 @admin.register(Course)
@@ -36,14 +39,20 @@ class CourseModuleAdmin(admin.ModelAdmin):
         "course", "kind", "title", "order", "is_active",
         "video_url", "body", "package", "package_status",
     )
-    # TinyMCE применяется к TextField 'body' (лонгрид); slides идут через пакет.
+    # TinyMCE применяется к TextField 'body' (legacy-лонгрид текстом); контент идёт через пакет.
     formfield_overrides = {dj_models.TextField: {"widget": TinyMCE()}}
+
+    class Media:
+        js = ("catalog/js/module_kind.js",)
+
+    # типы, которым нужен zip-пакет iSpring
+    PACKAGE_KINDS = (CourseModule.Kind.SLIDES, CourseModule.Kind.LONGREAD)
 
     @admin.display(description="Статус пакета")
     def package_status(self, obj):
         if not obj or not obj.pk:
             return "Сохраните модуль, затем загрузите пакет."
-        if obj.kind != CourseModule.Kind.SLIDES:
+        if obj.kind not in self.PACKAGE_KINDS:
             return "—"
         if not obj.package:
             return "Пакет не загружен."

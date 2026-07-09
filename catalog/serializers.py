@@ -204,6 +204,16 @@ class ProductDetailSerializer(serializers.ModelSerializer):
     def get_courses(self, obj):
         request = self.context.get("request")
         result = []
+
+        def _embed(entry_path):
+            if not entry_path:
+                return None
+            media_url = settings.MEDIA_URL
+            if not media_url.startswith("/"):
+                media_url = "/" + media_url
+            url = media_url.rstrip("/") + "/" + entry_path.lstrip("/")
+            return request.build_absolute_uri(url) if request is not None else url
+
         for c in obj.courses.all():
             if not c.is_active:
                 continue
@@ -215,17 +225,12 @@ class ProductDetailSerializer(serializers.ModelSerializer):
                 if m.kind == "video":
                     mod["video_url"] = m.video_url
                 elif m.kind == "longread":
-                    mod["body"] = m.body
-                else:  # slides — встраиваемый пакет iSpring (плеер внутри)
-                    embed = None
                     if m.entry_path:
-                        media_url = settings.MEDIA_URL
-                        if not media_url.startswith("/"):
-                            media_url = "/" + media_url
-                        embed = media_url.rstrip("/") + "/" + m.entry_path.lstrip("/")
-                        if request is not None:
-                            embed = request.build_absolute_uri(embed)
-                    mod["embed_url"] = embed
+                        mod["embed_url"] = _embed(m.entry_path)
+                    else:
+                        mod["body"] = m.body
+                else:  # slides — встраиваемый пакет iSpring
+                    mod["embed_url"] = _embed(m.entry_path)
                 modules.append(mod)
             result.append({"title": c.title, "slug": c.slug, "subtitle": c.subtitle, "modules": modules})
         return result
