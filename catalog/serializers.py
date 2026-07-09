@@ -1,5 +1,6 @@
 from decimal import Decimal, ROUND_HALF_UP
 
+from django.conf import settings
 from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import extend_schema_field
 from rest_framework import serializers
@@ -215,14 +216,16 @@ class ProductDetailSerializer(serializers.ModelSerializer):
                     mod["video_url"] = m.video_url
                 elif m.kind == "longread":
                     mod["body"] = m.body
-                else:
-                    slides = []
-                    for sl in m.slides.all():
-                        img = sl.image.url if sl.image else None
-                        if img and request is not None:
-                            img = request.build_absolute_uri(img)
-                        slides.append({"title": sl.title, "body": sl.body, "image": img})
-                    mod["slides"] = slides
+                else:  # slides — встраиваемый пакет iSpring (плеер внутри)
+                    embed = None
+                    if m.entry_path:
+                        media_url = settings.MEDIA_URL
+                        if not media_url.startswith("/"):
+                            media_url = "/" + media_url
+                        embed = media_url.rstrip("/") + "/" + m.entry_path.lstrip("/")
+                        if request is not None:
+                            embed = request.build_absolute_uri(embed)
+                    mod["embed_url"] = embed
                 modules.append(mod)
             result.append({"title": c.title, "slug": c.slug, "subtitle": c.subtitle, "modules": modules})
         return result

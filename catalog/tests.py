@@ -679,3 +679,87 @@ class GroupLevelIntegrityTests(TestCase):
     def test_matching_level_ok(self):
         p = Product(name="Имплант Z", category=self.cat, group=self.g1, group_level=self.l1)
         p.clean()  # не должно бросать
+
+
+def _make_zip(files):
+    """Собрать zip в памяти: files = {arcname: content_str}."""
+    import zipfile
+    bio = BytesIO()
+    with zipfile.ZipFile(bio, "w") as z:
+        for name, content in files.items():
+            z.writestr(name, content)
+    bio.seek(0)
+    return bio.getvalue()
+
+
+_TINCAN = (
+    '<?xml version="1.0"?>'
+    '<tincan xmlns="http://projecttincan.com/tincan.xsd">'
+    '<activities><activity><launch>res/index.html</launch></activity></activities>'
+    '</tincan>'
+)
+
+
+class CoursePackageTests(TestCase):
+    """Пакет слайдов iSpring/xAPI: безопасная распаковка, поиск точки входа,
+    отдача embed_url в API."""
+
+    def setUp(self):
+        import shutil
+        from catalog.education import Course
+        self.tmp = tempfile.mkdtemp()
+        ov = override_settings(MEDIA_ROOT=self.tmp)
+        ov.enable()
+        self.addCleanup(ov.disable)
+        self.addCleanup(lambda: shutil.rmtree(self.tmp, ignore_errors=True))
+        self.api = APIClient()
+        self.cat = Category.objects.create(name="Обучающие товары")
+        self.course = Course.objects.create(title="Курс А", slug="kurs-a")
+
+    def _module_with_zip(self, files, name="course.zip"):
+        from catalog.education import CourseModule
+        m = CourseModule.objects.create(course=self.course, kind="slides", title="Слайды")
+        m.package.save(name, SimpleUploadedFile(name, _make_zip(files), "application/zip"))
+        m.refresh_from_db()
+        return m
+
+    def test_unpack_finds_entry_via_tincan(self):
+        m = self._module_with_zip({
+            "course/tincan.xml": _TINCAN,
+            "course/res/index.html": "<!doctype html><html><body>ok</body></html>",
+            "course/res/lms.js": "// player",
+        })
+        self.assertTrue(m.entry_path.endswith("course/res/index.html"), m.entry_path)
+        # файл действительно распакован на диск
+        import os as _os
+        self.assertTrue(_os.path.isfile(_os.path.join(self.tmp, m.entry_path)))
+
+    def test_zip_slip_rejected(self):
+        import os as _os
+        from catalog.education_packages import module_dir
+        m = self._module_with_zip({
+            "../evil.txt": "pwned",
+            "res/index.html": "ok",
+            "res/lms.js": "//",
+        }, name="evil.zip")
+        # распаковка отклонена: точки входа нет, файл наружу не записан
+        self.assertEqual(m.entry_path, "")
+        outside = _os.path.join(_os.path.dirname(module_dir(m.pk)), "evil.txt")
+        self.assertFalse(_os.path.exists(outside))
+
+    def test_api_returns_embed_url(self):
+        from catalog.education import CourseModule
+        product = Product.objects.create(name="Товар с обучением", category=self.cat)
+        self.course.products.add(product)
+        m = self._module_with_zip({
+            "course/tincan.xml": _TINCAN,
+            "course/res/index.html": "<!doctype html>ok",
+            "course/res/lms.js": "//",
+        })
+        r = self.api.get(f"/api/products/{product.slug}/")
+        self.assertEqual(r.status_code, 200)
+        mods = r.data["courses"][0]["modules"]
+        slides = [x for x in mods if x["kind"] == "slides"][0]
+        self.assertIn("embed_url", slides)
+        self.assertTrue(slides["embed_url"].endswith("res/index.html"), slides["embed_url"])
+        self.assertTrue(slides["embed_url"].startswith("http"))

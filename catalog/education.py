@@ -5,6 +5,8 @@
 показывает блок «Обучение». Слайды рендерит собственный плеер на витрине.
 """
 from django.db import models
+from django.db.models.signals import post_save
+from django.dispatch import receiver
 
 
 class Course(models.Model):
@@ -44,6 +46,20 @@ class CourseModule(models.Model):
         "Текст лонгрида (HTML)", blank=True,
         help_text="Для типа «Лонгрид»: оформленная статья (визуальный редактор).",
     )
+    package = models.FileField(
+        "Пакет слайдов (zip, iSpring)", upload_to="course_packages/zips/",
+        blank=True, null=True,
+        help_text="Для типа «Слайды»: zip-экспорт курса iSpring/xAPI. "
+                  "После сохранения распаковывается автоматически.",
+    )
+    entry_path = models.CharField(
+        "Точка входа (заполняется автоматически)", max_length=500, blank=True, default="",
+        help_text="Относительный путь до входного HTML внутри распакованного пакета.",
+    )
+    entry_source = models.CharField(
+        max_length=255, blank=True, default="", editable=False,
+        help_text="Имя zip, из которого распакован пакет (служебное).",
+    )
     order = models.PositiveIntegerField("Порядок", default=0)
     is_active = models.BooleanField("Активно", default=True)
 
@@ -70,3 +86,10 @@ class Slide(models.Model):
 
     def __str__(self):
         return self.title or f"Слайд {self.order}"
+
+
+@receiver(post_save, sender=CourseModule)
+def _sync_course_module_package(sender, instance, **kwargs):
+    """После сохранения модуля привести распакованный пакет в соответствие с zip."""
+    from .education_packages import sync_module_package
+    sync_module_package(instance)
