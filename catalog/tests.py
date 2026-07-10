@@ -763,3 +763,64 @@ class CoursePackageTests(TestCase):
         self.assertIn("embed_url", slides)
         self.assertTrue(slides["embed_url"].endswith("res/index.html"), slides["embed_url"])
         self.assertTrue(slides["embed_url"].startswith("http"))
+
+
+class ImageDerivativeTests(TestCase):
+    """Уменьшенные копии: генерация, вписывание, отсутствие апскейла, URL в API."""
+
+    def setUp(self):
+        import shutil
+        self.tmp = tempfile.mkdtemp()
+        ov = override_settings(MEDIA_ROOT=self.tmp)
+        ov.enable()
+        self.addCleanup(ov.disable)
+        self.addCleanup(lambda: shutil.rmtree(self.tmp, ignore_errors=True))
+        self.api = APIClient()
+        self.cat = Category.objects.create(name="Товары с фото")
+        self.product = Product.objects.create(name="Фото-товар", category=self.cat)
+
+    def _png(self, w=2000, h=1500):
+        from PIL import Image
+        buf = BytesIO()
+        Image.new("RGB", (w, h), (180, 90, 40)).save(buf, format="PNG")
+        return buf.getvalue()
+
+    def _add_image(self, w=2000, h=1500, name="orig.png"):
+        from catalog.models import ProductImage
+        img = ProductImage(product=self.product)
+        img.image.save(name, SimpleUploadedFile(name, self._png(w, h), "image/png"))
+        img.refresh_from_db()
+        return img
+
+    def _dims(self, filefield):
+        from PIL import Image
+        import os as _os
+        with Image.open(_os.path.join(self.tmp, filefield.name)) as im:
+            return im.size
+
+    def test_three_copies_created_and_fit(self):
+        img = self._add_image(2000, 1500)
+        self.assertTrue(img.thumb and img.card and img.main)
+        self.assertLessEqual(max(self._dims(img.thumb)), 160)
+        self.assertLessEqual(max(self._dims(img.card)), 400)
+        self.assertLessEqual(max(self._dims(img.main)), 1200)
+        # пропорции сохранены (не квадрат)
+        w, h = self._dims(img.main)
+        self.assertAlmostEqual(w / h, 2000 / 1500, places=1)
+
+    def test_no_upscale(self):
+        img = self._add_image(120, 90, name="small.png")
+        self.assertLessEqual(max(self._dims(img.main)), 120)
+
+    def test_gallery_and_list_urls(self):
+        self._add_image()
+        r = self.api.get(f"/api/products/{self.product.slug}/")
+        gallery = r.data["images"][0]
+        for key in ("thumb", "main", "original", "alt", "order"):
+            self.assertIn(key, gallery)
+        self.assertTrue(gallery["thumb"].startswith("http"))
+        self.assertTrue(gallery["main"].startswith("http"))
+        # список каталога: thumbnail = копия card
+        rl = self.api.get(f"/api/products/?sku={self.product.sku}")
+        item = [x for x in rl.data["results"] if x["slug"] == self.product.slug][0]
+        self.assertTrue(item["thumbnail"].startswith("http"))

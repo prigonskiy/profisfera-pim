@@ -501,11 +501,29 @@ class ProductChangeList(ChangeList):
         )
 
 
+class HasImageFilter(admin.SimpleListFilter):
+    """Быстро отсеять карточки без изображений."""
+    title = "Изображение"
+    parameter_name = "has_image"
+
+    def lookups(self, request, model_admin):
+        return (("yes", "Есть"), ("no", "Нет"))
+
+    def queryset(self, request, queryset):
+        if self.value() == "yes":
+            return queryset.filter(images__isnull=False).distinct()
+        if self.value() == "no":
+            return queryset.filter(images__isnull=True)
+        return queryset
+
+
 @admin.register(Product)
 class ProductAdmin(admin.ModelAdmin):
     form = ProductAdminForm
-    list_display = ("sku", "name", "category", "brand", "group", "manufacturer_sku", "updated_at")
-    list_filter = ("category", "brand", "group", "country_of_origin", "audiences", "directions")
+    list_display = ("image_tag", "sku", "name", "category", "brand", "group",
+                    "manufacturer_sku", "updated_at")
+    list_filter = ("category", "brand", "group", "country_of_origin",
+                   "audiences", "directions", HasImageFilter)
     search_fields = ("name", "manufacturer_sku", "gtin", "sku")
     readonly_fields = ("sku", "group_editor_link")
     autocomplete_fields = ("category", "brand", "group")
@@ -513,6 +531,20 @@ class ProductAdmin(admin.ModelAdmin):
     inlines = [ProductImageInline]
     change_list_template = "admin/catalog/product/change_list.html"
     actions = ["export_general", "export_full"]
+
+    def get_queryset(self, request):
+        # префетч изображений, чтобы колонка-превью не плодила запросы
+        return super().get_queryset(request).prefetch_related("images")
+
+    @admin.display(description="Изобр.")
+    def image_tag(self, obj):
+        first = next(iter(obj.images.all()), None)  # из префетч-кэша
+        if first and (first.thumb or first.image):
+            src = (first.thumb or first.image).url
+            return format_html(
+                '<img src="{}" style="height:40px;width:40px;object-fit:contain;'
+                'background:#fff;border:1px solid #eee;border-radius:4px" />', src)
+        return format_html('<span style="color:#c0392b">нет изображения</span>')
 
     # ---- Адресация карточки по sku (с откатом на pk для старых ссылок) ----
     def get_changelist(self, request, **kwargs):

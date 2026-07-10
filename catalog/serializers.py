@@ -141,9 +141,31 @@ class AudienceMenuSerializer(serializers.ModelSerializer):
 # Товары
 # ---------------------------------------------------------------------------
 class ProductImageSerializer(serializers.ModelSerializer):
+    thumb = serializers.SerializerMethodField()
+    main = serializers.SerializerMethodField()
+    original = serializers.SerializerMethodField()
+
     class Meta:
         model = ProductImage
-        fields = ("image", "alt", "order")
+        fields = ("thumb", "main", "original", "alt", "order")
+
+    def _abs(self, filefield):
+        if not filefield:
+            return None
+        request = self.context.get("request")
+        return request.build_absolute_uri(filefield.url) if request else filefield.url
+
+    @extend_schema_field(OpenApiTypes.URI)
+    def get_thumb(self, obj):
+        return self._abs(obj.thumb or obj.image)  # fallback на оригинал, если копии нет
+
+    @extend_schema_field(OpenApiTypes.URI)
+    def get_main(self, obj):
+        return self._abs(obj.main or obj.image)
+
+    @extend_schema_field(OpenApiTypes.URI)
+    def get_original(self, obj):
+        return self._abs(obj.image)
 
 
 class ProductListSerializer(serializers.ModelSerializer):
@@ -170,7 +192,7 @@ class ProductListSerializer(serializers.ModelSerializer):
         if not first:
             return None
         request = self.context.get("request")
-        url = first.image.url
+        url = (first.card or first.image).url  # каталог использует копию 400
         return request.build_absolute_uri(url) if request else url
 
 
@@ -325,7 +347,7 @@ class ProductDetailSerializer(serializers.ModelSerializer):
             first = p.images.all().first()
             thumbnail = None
             if first:
-                url = first.image.url
+                url = (first.card or first.image).url  # копия 400 для миниатюры варианта
                 thumbnail = request.build_absolute_uri(url) if request else url
             variants.append({
                 "slug": p.slug,

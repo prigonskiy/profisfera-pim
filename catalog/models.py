@@ -1,6 +1,8 @@
 from django.core.exceptions import ValidationError
 from django.core.validators import FileExtensionValidator
 from django.db import models, transaction
+from django.db.models.signals import post_save
+from django.dispatch import receiver
 from mptt.models import MPTTModel, TreeForeignKey
 from django.utils import timezone
 from django_countries.fields import CountryField
@@ -662,6 +664,17 @@ class ProductImage(models.Model):
     image = models.ImageField("Изображение", upload_to="products/")
     alt = models.CharField("Alt-текст", max_length=255, blank=True)
     order = models.PositiveIntegerField("Порядок", default=0)
+    # Уменьшенные копии (WebP, вписыванием без кропа) — генерятся автоматически
+    # при сохранении оригинала. Отдаются на витрину под разные сценарии.
+    thumb = models.ImageField(
+        "Копия 160", upload_to="products/derived/", blank=True, null=True, editable=False)
+    card = models.ImageField(
+        "Копия 400", upload_to="products/derived/", blank=True, null=True, editable=False)
+    main = models.ImageField(
+        "Копия 1200", upload_to="products/derived/", blank=True, null=True, editable=False)
+    derived_from = models.CharField(
+        max_length=500, blank=True, default="", editable=False,
+        help_text="Имя оригинала, из которого сделаны копии (служебное).")
 
     class Meta:
         verbose_name = "Изображение"
@@ -677,6 +690,13 @@ class ProductImage(models.Model):
         if not self.alt and self.product_id:
             self.alt = self.product.name
         super().save(*args, **kwargs)
+
+
+@receiver(post_save, sender=ProductImage)
+def _generate_image_derivatives(sender, instance, **kwargs):
+    """После сохранения изображения товара создать/обновить уменьшенные копии."""
+    from .image_derivatives import sync_derivatives
+    sync_derivatives(instance)
 
 
 class ProductAttributeValue(models.Model):
