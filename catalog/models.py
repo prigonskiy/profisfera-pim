@@ -1,13 +1,14 @@
 from django.core.exceptions import ValidationError
 from django.core.validators import FileExtensionValidator
 from django.db import models, transaction
-from django.db.models.signals import post_save
+from django.db.models.signals import post_delete, post_save
 from django.dispatch import receiver
 from mptt.models import MPTTModel, TreeForeignKey
 from django.utils import timezone
 from django_countries.fields import CountryField
 
 from .utils import unique_slugify, validate_gtin
+from .storage import product_image_storage
 from .offers import Seller, Region, Warehouse, Offer, OfferTerm  # noqa: F401
 from .clients import LegalEntity, Client, ClientMembership  # noqa: F401
 from .education import Course, CourseModule, Slide  # noqa: F401
@@ -667,17 +668,20 @@ class ProductImage(models.Model):
         on_delete=models.CASCADE,
         related_name="images",
     )
-    image = models.ImageField("Изображение", upload_to="products/")
+    image = models.ImageField("Изображение", upload_to="products/", storage=product_image_storage)
     alt = models.CharField("Alt-текст", max_length=255, blank=True)
     order = models.PositiveIntegerField("Порядок", default=0)
     # Уменьшенные копии (WebP, вписыванием без кропа) — генерятся автоматически
     # при сохранении оригинала. Отдаются на витрину под разные сценарии.
     thumb = models.ImageField(
-        "Копия 160", upload_to="products/derived/", blank=True, null=True, editable=False)
+        "Копия 160", upload_to="products/derived/", storage=product_image_storage,
+        blank=True, null=True, editable=False)
     card = models.ImageField(
-        "Копия 400", upload_to="products/derived/", blank=True, null=True, editable=False)
+        "Копия 400", upload_to="products/derived/", storage=product_image_storage,
+        blank=True, null=True, editable=False)
     main = models.ImageField(
-        "Копия 1200", upload_to="products/derived/", blank=True, null=True, editable=False)
+        "Копия 1200", upload_to="products/derived/", storage=product_image_storage,
+        blank=True, null=True, editable=False)
     derived_from = models.CharField(
         max_length=500, blank=True, default="", editable=False,
         help_text="Имя оригинала, из которого сделаны копии (служебное).")
@@ -689,6 +693,17 @@ class ProductImage(models.Model):
 
     def __str__(self):
         return f"Изображение #{self.pk} ({self.product})"
+
+    @classmethod
+    def from_db(cls, db, field_names, values):
+        # запоминаем имена файлов на момент загрузки — чтобы при замене оригинала
+        # аккуратно убрать осиротевшие старые файлы (см. sync_derivatives)
+        inst = super().from_db(db, field_names, values)
+        inst._orig_files = {
+            "image": inst.image.name, "thumb": inst.thumb.name,
+            "card": inst.card.name, "main": inst.main.name,
+        }
+        return inst
 
     def save(self, *args, **kwargs):
         # галерейный виджет не редактирует alt — подставляем название товара,
@@ -703,6 +718,18 @@ def _generate_image_derivatives(sender, instance, **kwargs):
     """После сохранения изображения товара создать/обновить уменьшенные копии."""
     from .image_derivatives import sync_derivatives
     sync_derivatives(instance)
+
+
+@receiver(post_delete, sender=ProductImage)
+def _cleanup_image_files(sender, instance, **kwargs):
+    """После удаления записи убрать её файлы — но только те, на которые больше
+    никто не ссылается (у дедупнутых файлов может быть несколько владельцев)."""
+    from .image_derivatives import safe_delete_name
+    storage = instance.image.storage
+    for f in (instance.image, instance.thumb, instance.card, instance.main):
+        name = getattr(f, "name", "")
+        if name:
+            safe_delete_name(storage, name)
 
 
 class ProductAttributeValue(models.Model):

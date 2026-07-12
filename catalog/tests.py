@@ -848,3 +848,92 @@ class ProductActiveTests(TestCase):
     def test_active_detail_ok(self):
         r = self.api.get(f"/api/products/{self.active.slug}/")
         self.assertEqual(r.status_code, 200)
+
+
+class MediaDedupTests(TestCase):
+    """Content-addressed хранение + удаление по счётчику ссылок."""
+
+    def setUp(self):
+        import shutil
+        self.tmp = tempfile.mkdtemp()
+        ov = override_settings(MEDIA_ROOT=self.tmp)
+        ov.enable()
+        self.addCleanup(ov.disable)
+        self.addCleanup(lambda: shutil.rmtree(self.tmp, ignore_errors=True))
+        self.cat = Category.objects.create(name="Дедуп")
+        self.p1 = Product.objects.create(name="Товар 1", category=self.cat)
+        self.p2 = Product.objects.create(name="Товар 2", category=self.cat)
+
+    def _png(self, color=(1, 2, 3)):
+        from PIL import Image
+        buf = BytesIO()
+        Image.new("RGB", (300, 200), color).save(buf, format="PNG")
+        return buf.getvalue()
+
+    def _add(self, product, data, name="orig.png"):
+        from catalog.models import ProductImage
+        img = ProductImage(product=product)
+        img.image.save(name, SimpleUploadedFile(name, data, "image/png"))
+        img.refresh_from_db()
+        return img
+
+    @property
+    def _storage(self):
+        from catalog.storage import product_image_storage
+        return product_image_storage
+
+    def test_identical_files_are_shared(self):
+        data = self._png()
+        i1 = self._add(self.p1, data)
+        i2 = self._add(self.p2, data)
+        # одинаковые байты → один и тот же путь по всем четырём файлам
+        self.assertEqual(i1.image.name, i2.image.name)
+        self.assertEqual(i1.thumb.name, i2.thumb.name)
+        self.assertEqual(i1.main.name, i2.main.name)
+
+    def test_delete_one_keeps_shared_file(self):
+        data = self._png()
+        i1 = self._add(self.p1, data)
+        self._add(self.p2, data)
+        shared = i1.image.name
+        i1.delete()
+        # второй товар всё ещё ссылается → файл ОБЯЗАН остаться
+        self.assertTrue(self._storage.exists(shared))
+
+    def test_delete_last_owner_removes_file(self):
+        data = self._png()
+        i1 = self._add(self.p1, data)
+        i2 = self._add(self.p2, data)
+        shared = i1.image.name
+        i1.delete()
+        i2.delete()
+        self.assertFalse(self._storage.exists(shared))
+
+    def test_replace_removes_orphaned_original(self):
+        from catalog.models import ProductImage
+        i = self._add(self.p1, self._png(color=(1, 2, 3)))
+        old_name = i.image.name
+        inst = ProductImage.objects.get(pk=i.pk)  # from_db → запомнит старые имена
+        inst.image.save("new.png", SimpleUploadedFile("new.png", self._png(color=(9, 9, 9)), "image/png"))
+        inst.refresh_from_db()
+        self.assertNotEqual(inst.image.name, old_name)
+        self.assertFalse(self._storage.exists(old_name))       # старый осиротел → удалён
+        self.assertTrue(self._storage.exists(inst.image.name))  # новый на месте
+
+    def test_replace_keeps_file_still_shared(self):
+        from catalog.models import ProductImage
+        data = self._png()
+        i1 = self._add(self.p1, data)
+        self._add(self.p2, data)        # p2 делит те же файлы
+        shared = i1.image.name
+        inst = ProductImage.objects.get(pk=i1.pk)
+        inst.image.save("new.png", SimpleUploadedFile("new.png", self._png(color=(7, 7, 7)), "image/png"))
+        # p1 сменил оригинал, но p2 всё ещё ссылается на старый файл → он остаётся
+        self.assertTrue(self._storage.exists(shared))
+
+    def test_migrate_to_cas_idempotent(self):
+        from catalog.image_derivatives import migrate_to_cas
+        from catalog.models import ProductImage
+        i = self._add(self.p1, self._png())
+        inst = ProductImage.objects.get(pk=i.pk)
+        self.assertEqual(migrate_to_cas(inst), 0)  # файлы уже под хеш-именами
