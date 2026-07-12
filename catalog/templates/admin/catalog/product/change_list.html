@@ -1,6 +1,45 @@
 {% extends "admin/change_list.html" %}
+{% load admin_list %}
+
 {% block object-tools-items %}
 <li><a href="export/">Экспорт в Excel</a></li>
 <li><a href="import/">Импорт из Excel</a></li>
 {{ block.super }}
 {% endblock %}
+
+{% block extrastyle %}{{ block.super }}
+<style>
+  /* фильтры больше не справа → таблица занимает всю ширину */
+  #changelist.filtered .results,
+  #changelist.filtered .paginator,
+  #changelist.filtered #toolbar,
+  #changelist.filtered form#changelist-search,
+  #changelist.filtered .actions { margin-right: 0 !important; }
+
+  /* компактная строка фильтров над таблицей */
+  .pim-filter-bar {
+    display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: flex-end;
+    padding: 10px 12px; margin: 0 0 14px;
+    background: var(--darkened-bg, #f3f3f3);
+    border: 1px solid var(--hairline-color, #e5e5e5); border-radius: 6px;
+  }
+  .pim-filter-bar .pim-filter { display: flex; flex-direction: column; font-size: 12px; }
+  .pim-filter-bar .pim-filter > label {
+    color: var(--body-quiet-color, #666); margin-bottom: 3px;
+    text-transform: uppercase; letter-spacing: .03em; font-weight: 600;
+  }
+  .pim-filter-bar select { max-width: 240px; padding: 3px 4px; }
+</style>
+{% endblock %}
+
+{% block result_list %}
+  {% if cl.has_filters %}
+  <div class="pim-filter-bar">
+    {% for spec in cl.filter_specs %}{% admin_list_filter cl spec %}{% endfor %}
+  </div>
+  {% endif %}
+  {{ block.super }}
+{% endblock %}
+
+{# фильтры перенесены наверх — правую панель убираем #}
+{% block filters %}{% endblock %}

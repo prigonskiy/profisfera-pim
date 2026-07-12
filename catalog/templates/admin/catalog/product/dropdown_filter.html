@@ -1,0 +1,9 @@
+{% load i18n %}
+<div class="pim-filter">
+  <label>{{ title }}</label>
+  <select onchange="if(this.value){window.location.href=this.value;}">
+    {% for choice in choices %}
+      <option value="{{ choice.query_string|iriencode }}"{% if choice.selected %} selected{% endif %}>{{ choice.display }}</option>
+    {% endfor %}
+  </select>
+</div>

@@ -5,6 +5,11 @@ from adminsortable2.admin import SortableAdminBase, SortableAdminMixin, Sortable
 from mptt.admin import DraggableMPTTAdmin
 from django import forms
 from django.contrib import admin, messages
+from django.contrib.admin.filters import (
+    BooleanFieldListFilter,
+    ChoicesFieldListFilter,
+    RelatedFieldListFilter,
+)
 from django.contrib.admin.utils import quote
 from django.contrib.admin.views.main import ChangeList
 from django.contrib.admin.widgets import FilteredSelectMultiple
@@ -505,6 +510,7 @@ class HasImageFilter(admin.SimpleListFilter):
     """Быстро отсеять карточки без изображений."""
     title = "Изображение"
     parameter_name = "has_image"
+    template = "admin/catalog/product/dropdown_filter.html"
 
     def lookups(self, request, model_admin):
         return (("yes", "Есть"), ("no", "Нет"))
@@ -517,6 +523,23 @@ class HasImageFilter(admin.SimpleListFilter):
         return queryset
 
 
+# Фильтры-выпадашки: те же данные, но рендерятся как <select> (шаблон выше),
+# чтобы уместиться компактной строкой над таблицей вместо длинных списков справа.
+_DROPDOWN_TPL = "admin/catalog/product/dropdown_filter.html"
+
+
+class RelatedDropdownFilter(RelatedFieldListFilter):
+    template = _DROPDOWN_TPL
+
+
+class BooleanDropdownFilter(BooleanFieldListFilter):
+    template = _DROPDOWN_TPL
+
+
+class ChoicesDropdownFilter(ChoicesFieldListFilter):
+    template = _DROPDOWN_TPL
+
+
 @admin.register(Product)
 class ProductAdmin(admin.ModelAdmin):
     form = ProductAdminForm
@@ -524,8 +547,14 @@ class ProductAdmin(admin.ModelAdmin):
                     "manufacturer_sku", "documents_list", "is_active", "updated_at")
     list_display_links = ("sku", "name")
     list_editable = ("is_active",)
-    list_filter = ("is_active", "category", "brand", "group", "country_of_origin",
-                   "audiences", "directions", HasImageFilter)
+    list_filter = (("is_active", BooleanDropdownFilter),
+                   ("category", RelatedDropdownFilter),
+                   ("brand", RelatedDropdownFilter),
+                   ("group", RelatedDropdownFilter),
+                   ("country_of_origin", ChoicesDropdownFilter),
+                   ("audiences", RelatedDropdownFilter),
+                   ("directions", RelatedDropdownFilter),
+                   HasImageFilter)
     search_fields = ("name", "manufacturer_sku", "gtin", "sku")
     readonly_fields = ("sku", "group_editor_link")
     autocomplete_fields = ("category", "brand", "group")
