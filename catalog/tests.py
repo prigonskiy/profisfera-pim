@@ -824,3 +824,27 @@ class ImageDerivativeTests(TestCase):
         rl = self.api.get(f"/api/products/?sku={self.product.sku}")
         item = [x for x in rl.data["results"] if x["slug"] == self.product.slug][0]
         self.assertTrue(item["thumbnail"].startswith("http"))
+
+
+class ProductActiveTests(TestCase):
+    """is_active: неактивные товары не отдаются публичным API."""
+
+    def setUp(self):
+        self.api = APIClient()
+        self.cat = Category.objects.create(name="Категория A")
+        self.active = Product.objects.create(name="Активный", category=self.cat, is_active=True)
+        self.hidden = Product.objects.create(name="Скрытый", category=self.cat, is_active=False)
+
+    def test_list_excludes_inactive(self):
+        r = self.api.get("/api/products/")
+        slugs = [x["slug"] for x in r.data["results"]]
+        self.assertIn(self.active.slug, slugs)
+        self.assertNotIn(self.hidden.slug, slugs)
+
+    def test_detail_of_inactive_is_404(self):
+        r = self.api.get(f"/api/products/{self.hidden.slug}/")
+        self.assertEqual(r.status_code, 404)
+
+    def test_active_detail_ok(self):
+        r = self.api.get(f"/api/products/{self.active.slug}/")
+        self.assertEqual(r.status_code, 200)

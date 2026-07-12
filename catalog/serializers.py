@@ -338,7 +338,7 @@ class ProductDetailSerializer(serializers.ModelSerializer):
         request = self.context.get("request")
 
         levels = list(grp.levels.all())  # упорядочены полем order
-        siblings = grp.products.select_related("group_level").prefetch_related(
+        siblings = grp.products.filter(is_active=True).select_related("group_level").prefetch_related(
             "images"
         ).order_by("group_order", "name")
 

@@ -521,8 +521,10 @@ class HasImageFilter(admin.SimpleListFilter):
 class ProductAdmin(admin.ModelAdmin):
     form = ProductAdminForm
     list_display = ("image_tag", "sku", "name", "category", "brand", "group",
-                    "manufacturer_sku", "updated_at")
-    list_filter = ("category", "brand", "group", "country_of_origin",
+                    "manufacturer_sku", "documents_list", "is_active", "updated_at")
+    list_display_links = ("sku", "name")
+    list_editable = ("is_active",)
+    list_filter = ("is_active", "category", "brand", "group", "country_of_origin",
                    "audiences", "directions", HasImageFilter)
     search_fields = ("name", "manufacturer_sku", "gtin", "sku")
     readonly_fields = ("sku", "group_editor_link")
@@ -530,11 +532,14 @@ class ProductAdmin(admin.ModelAdmin):
     filter_horizontal = ("documents", "audiences", "directions")
     inlines = [ProductImageInline]
     change_list_template = "admin/catalog/product/change_list.html"
-    actions = ["export_general", "export_full"]
+    actions = ["export_general", "export_full", "make_active", "make_inactive"]
+
+    class Media:
+        js = ("catalog/js/resizable_columns.js",)
 
     def get_queryset(self, request):
-        # префетч изображений, чтобы колонка-превью не плодила запросы
-        return super().get_queryset(request).prefetch_related("images")
+        # префетч изображений и документов, чтобы колонки не плодили запросы
+        return super().get_queryset(request).prefetch_related("images", "documents")
 
     @admin.display(description="Изобр.")
     def image_tag(self, obj):
@@ -545,6 +550,25 @@ class ProductAdmin(admin.ModelAdmin):
                 '<img src="{}" style="height:40px;width:40px;object-fit:contain;'
                 'background:#fff;border:1px solid #eee;border-radius:4px" />', src)
         return format_html('<span style="color:#c0392b">нет изображения</span>')
+
+    @admin.display(description="Файлы")
+    def documents_list(self, obj):
+        docs = list(obj.documents.all())  # из префетч-кэша
+        if not docs:
+            return format_html('<span style="color:#999">—</span>')
+        rows = [(d.name or (d.file.name.rsplit("/", 1)[-1] if d.file else f"Документ #{d.pk}"))
+                for d in docs]
+        return format_html("<br>".join("{}" for _ in rows), *rows)
+
+    @admin.action(description="Активировать выбранные")
+    def make_active(self, request, queryset):
+        updated = queryset.update(is_active=True)
+        self.message_user(request, f"Активировано товаров: {updated}.", messages.SUCCESS)
+
+    @admin.action(description="Деактивировать выбранные")
+    def make_inactive(self, request, queryset):
+        updated = queryset.update(is_active=False)
+        self.message_user(request, f"Деактивировано товаров: {updated}.", messages.WARNING)
 
     # ---- Адресация карточки по sku (с откатом на pk для старых ссылок) ----
     def get_changelist(self, request, **kwargs):

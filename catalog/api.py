@@ -156,10 +156,14 @@ class ProductViewSet(viewsets.ModelViewSet):
                 "group__levels",
                 "offers__terms",
                 "offers__warehouse__seller",
-                "courses__modules__slides",
+                "courses__modules",
             )
             .all()
         )
+        # публично отдаём только активные товары; staff (запись/предпросмотр) видит все
+        user = getattr(self.request, "user", None)
+        if not (user and user.is_staff):
+            qs = qs.filter(is_active=True)
         category = self.request.query_params.get("category")
         if category:
             try:

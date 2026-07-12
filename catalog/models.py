@@ -621,6 +621,12 @@ class Product(models.Model):
         blank=True,
     )
 
+    is_active = models.BooleanField(
+        "Активен", default=True, db_index=True,
+        help_text="Снятая галочка убирает товар из публичной выдачи API (и из витрины "
+                  "при следующей пересборке). Черновики/скрытые позиции держите неактивными.",
+    )
+
     created_at = models.DateTimeField("Создан", auto_now_add=True)
     updated_at = models.DateTimeField("Обновлён", auto_now=True)
 
