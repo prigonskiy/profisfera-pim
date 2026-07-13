@@ -9,12 +9,13 @@ from rest_framework.response import Response
 
 from drf_spectacular.utils import OpenApiParameter, extend_schema, extend_schema_view
 
-from .models import Audience, Brand, Category, Characteristic, Direction, Document, Product
+from .models import Audience, Brand, Category, Characteristic, CompatibilitySystem, Direction, Document, Product
 from .permissions import IsStaffOrReadOnly
 from .utils import category_descendant_ids
 from .serializers import (
     AudienceMenuSerializer,
     AudienceSerializer,
+    CompatibilitySystemSerializer,
     BrandSerializer,
     CategorySerializer,
     CategoryTreeSerializer,
@@ -102,6 +103,20 @@ class DirectionViewSet(viewsets.ModelViewSet):
         return qs
 
 
+class CompatibilitySystemViewSet(viewsets.ModelViewSet):
+    """Справочник систем совместимости (fitment). Витрина строит из него узлы/срезы."""
+    serializer_class = CompatibilitySystemSerializer
+    permission_classes = [IsStaffOrReadOnly]
+    lookup_field = "slug"
+
+    def get_queryset(self):
+        qs = CompatibilitySystem.objects.order_by("group", "order", "name")
+        group = self.request.query_params.get("group")
+        if group:
+            qs = qs.filter(group=group)
+        return qs
+
+
 @extend_schema_view(
     list=extend_schema(
         summary="Список товаров",
@@ -114,6 +129,7 @@ class DirectionViewSet(viewsets.ModelViewSet):
             OpenApiParameter("brand", int, description="ID бренда."),
             OpenApiParameter("audience", str, description="Slug(и) аудитории через запятую."),
             OpenApiParameter("direction", str, description="Slug(и) направления через запятую."),
+            OpenApiParameter("system", str, description="Slug(и) системы совместимости через запятую."),
             OpenApiParameter("sku", str, description="Точный внутренний sku PIM (ключ интеграции контента)."),
             OpenApiParameter("sku__in", str, description="Несколько sku через запятую."),
             OpenApiParameter(
@@ -151,6 +167,7 @@ class ProductViewSet(viewsets.ModelViewSet):
                 "documents",
                 "audiences",
                 "directions",
+                "compatibility_systems",
                 "attribute_values__characteristic",
                 "attribute_values__value_options",
                 "group__levels",
@@ -185,6 +202,10 @@ class ProductViewSet(viewsets.ModelViewSet):
         if direction:
             slugs = [s.strip() for s in direction.split(",") if s.strip()]
             qs = qs.filter(directions__slug__in=slugs).distinct()
+        system = self.request.query_params.get("system")
+        if system:
+            slugs = [s.strip() for s in system.split(",") if s.strip()]
+            qs = qs.filter(compatibility_systems__slug__in=slugs).distinct()
 
         # сопоставление контента с внешними системами — по внутреннему sku PIM.
         # sku стабилен, уникален и не переиспользуется; это рекомендованный ключ

@@ -13,6 +13,7 @@ from catalog.api import (
     BrandViewSet,
     CategoryViewSet,
     CharacteristicViewSet,
+    CompatibilitySystemViewSet,
     DirectionViewSet,
     DocumentViewSet,
     ProductViewSet,
@@ -27,6 +28,7 @@ router.register("characteristics", CharacteristicViewSet, basename="characterist
 router.register("documents", DocumentViewSet, basename="document")
 router.register("audiences", AudienceViewSet, basename="audience")
 router.register("directions", DirectionViewSet, basename="direction")
+router.register("systems", CompatibilitySystemViewSet, basename="system")
 
 urlpatterns = [
     path("admin/", admin.site.urls),

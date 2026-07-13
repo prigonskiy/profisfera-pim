@@ -52,6 +52,7 @@ from .group_editor import GroupEditorAdminMixin
 from . import admin_offers  # noqa: F401
 from . import admin_clients  # noqa: F401
 from . import admin_education  # noqa: F401
+from . import admin_fitment  # noqa: F401
 from . import admin_grouping  # noqa: F401
 
 admin.site.site_header = "ProfiSfera PIM"
@@ -458,6 +459,12 @@ class ProductAdminForm(forms.ModelForm):
             self.add_error("group_level", "Сначала выберите серию.")
         elif level and group and level.group_id != group.id:
             self.add_error("group_level", "Уровень должен принадлежать выбранной серии.")
+        # система совместимости заполнена → признак «оригинал/совместимый» обязателен
+        systems = cleaned.get("compatibility_systems")
+        if systems and not cleaned.get("fitment_type"):
+            self.add_error(
+                "fitment_type",
+                "Укажите «оригинал/совместимый», раз выбрана система совместимости.")
         return cleaned
 
     def __init__(self, *args, **kwargs):
@@ -558,7 +565,7 @@ class ProductAdmin(admin.ModelAdmin):
     search_fields = ("name", "manufacturer_sku", "gtin", "sku")
     readonly_fields = ("sku", "group_editor_link")
     autocomplete_fields = ("category", "brand", "group")
-    filter_horizontal = ("documents", "audiences", "directions")
+    filter_horizontal = ("documents", "audiences", "directions", "compatibility_systems")
     inlines = [ProductImageInline]
     change_list_template = "admin/catalog/product/change_list.html"
     actions = ["export_general", "export_full", "make_active", "make_inactive"]

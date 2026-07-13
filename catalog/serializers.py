@@ -14,6 +14,7 @@ from .models import (
     Document,
     Audience,
     Direction,
+    CompatibilitySystem,
     Product,
     ProductImage,
 )
@@ -128,6 +129,12 @@ class DirectionSerializer(serializers.ModelSerializer):
         fields = ("id", "name", "slug", "icon", "order", "audience")
 
 
+class CompatibilitySystemSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = CompatibilitySystem
+        fields = ("id", "name", "slug", "group", "order")
+
+
 class AudienceMenuSerializer(serializers.ModelSerializer):
     """Аудитория со вложенными направлениями — для построения меню магазина."""
     directions = DirectionSerializer(many=True, read_only=True)
@@ -174,13 +181,24 @@ class ProductListSerializer(serializers.ModelSerializer):
     category = serializers.SlugRelatedField(slug_field="slug", read_only=True)
     audiences = serializers.SlugRelatedField(slug_field="slug", many=True, read_only=True)
     directions = serializers.SlugRelatedField(slug_field="slug", many=True, read_only=True)
+    systems = serializers.SlugRelatedField(
+        slug_field="slug", many=True, read_only=True, source="compatibility_systems")
+    fitment = serializers.SerializerMethodField()
     thumbnail = serializers.SerializerMethodField()
     price_from = serializers.SerializerMethodField()
 
     class Meta:
         model = Product
         fields = ("id", "sku", "manufacturer_sku", "name", "slug", "short_description",
-                  "brand", "category", "audiences", "directions", "thumbnail", "price_from")
+                  "brand", "category", "audiences", "directions", "systems", "fitment",
+                  "thumbnail", "price_from")
+
+    @extend_schema_field(OpenApiTypes.STR)
+    def get_fitment(self, obj):
+        # признак имеет смысл только у системозависимого товара
+        if obj.fitment_type and obj.compatibility_systems.all():
+            return obj.fitment_type
+        return None
 
     @extend_schema_field(OpenApiTypes.DECIMAL)
     def get_price_from(self, obj):
@@ -204,6 +222,8 @@ class ProductDetailSerializer(serializers.ModelSerializer):
     documents = DocumentSerializer(many=True, read_only=True)
     audiences = AudienceSerializer(many=True, read_only=True)
     directions = DirectionSerializer(many=True, read_only=True)
+    systems = CompatibilitySystemSerializer(many=True, read_only=True, source="compatibility_systems")
+    fitment = serializers.SerializerMethodField()
     logistics = serializers.SerializerMethodField()
     characteristics = serializers.SerializerMethodField()
     group = serializers.SerializerMethodField()
@@ -217,10 +237,16 @@ class ProductDetailSerializer(serializers.ModelSerializer):
         fields = (
             "id", "sku", "name", "slug", "short_description", "full_description",
             "manufacturer_sku", "gtin", "tnved_code", "country_of_origin",
-            "brand", "category", "audiences", "directions", "logistics",
+            "brand", "category", "audiences", "directions", "systems", "fitment", "logistics",
             "images", "characteristics", "documents", "group",
             "price_from", "offers", "courses",
         )
+
+    @extend_schema_field(OpenApiTypes.STR)
+    def get_fitment(self, obj):
+        if obj.fitment_type and obj.compatibility_systems.all():
+            return obj.fitment_type
+        return None
 
     @extend_schema_field({"type": "array", "items": {"type": "object"}})
     def get_courses(self, obj):
@@ -380,8 +406,22 @@ class ProductWriteSerializer(serializers.ModelSerializer):
             "id", "name", "slug", "short_description", "full_description",
             "manufacturer_sku", "gtin", "tnved_code", "country_of_origin",
             "category", "brand", "audiences", "directions",
+            "compatibility_systems", "fitment_type",
             "gross_width_mm", "gross_height_mm", "gross_depth_mm", "gross_weight_kg",
             "documents",
             "group", "group_order", "variant_label",
         )
         extra_kwargs = {"slug": {"required": False}}
+
+    def validate(self, attrs):
+        # система заполнена → признак «оригинал/совместимый» обязателен
+        systems = attrs.get("compatibility_systems")
+        if systems is None and self.instance is not None:
+            systems = self.instance.compatibility_systems.all()
+        fitment = attrs.get("fitment_type")
+        if fitment is None and self.instance is not None:
+            fitment = self.instance.fitment_type
+        if systems and not fitment:
+            raise serializers.ValidationError(
+                {"fitment_type": "Укажите «оригинал/совместимый» при заполненной системе совместимости."})
+        return attrs

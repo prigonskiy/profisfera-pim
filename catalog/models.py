@@ -9,6 +9,7 @@ from django_countries.fields import CountryField
 
 from .utils import unique_slugify, validate_gtin
 from .storage import product_image_storage
+from .fitment import CompatibilitySystem, FitmentType  # noqa: F401
 from .offers import Seller, Region, Warehouse, Offer, OfferTerm  # noqa: F401
 from .clients import LegalEntity, Client, ClientMembership  # noqa: F401
 from .education import Course, CourseModule, Slide  # noqa: F401
@@ -620,6 +621,17 @@ class Product(models.Model):
         verbose_name="Направления",
         related_name="products",
         blank=True,
+    )
+    # Фасет «Система совместимости» (fitment). Пусто = товар системонезависим.
+    compatibility_systems = models.ManyToManyField(
+        CompatibilitySystem,
+        verbose_name="Системы совместимости",
+        related_name="products",
+        blank=True,
+    )
+    fitment_type = models.CharField(
+        "Оригинал / совместимый", max_length=16, choices=FitmentType.choices, blank=True,
+        help_text="Обязательно, если указана хотя бы одна система совместимости.",
     )
 
     is_active = models.BooleanField(

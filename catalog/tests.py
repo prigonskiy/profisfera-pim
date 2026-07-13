@@ -975,3 +975,65 @@ class AudienceFromDirectionsTests(TestCase):
         p = Product.objects.create(name="Перчатки", category=self.cat)
         p.audiences.add(self.a_med)  # ручной выбор, направлений нет
         self.assertEqual(self._aud_slugs(p), {"t-med"})
+
+
+class CompatibilitySystemTests(TestCase):
+    """Фасет «Система совместимости»: API-выдача, признак, фильтр, валидация."""
+
+    def setUp(self):
+        from catalog.models import CompatibilitySystem
+        self.api = APIClient()
+        self.cat = Category.objects.create(name="Абатменты")
+        self.sys_straumann = CompatibilitySystem.objects.create(
+            name="Straumann BLT", slug="implantatsiya-straumann-blt", group="Имплантация", order=1)
+        self.sys_dentium = CompatibilitySystem.objects.create(
+            name="Dentium SuperLine", slug="implantatsiya-dentium-superline", group="Имплантация", order=2)
+        # системозависимый товар
+        self.p_fit = Product.objects.create(name="Абатмент совместимый", category=self.cat,
+                                             fitment_type="compatible")
+        self.p_fit.compatibility_systems.add(self.sys_straumann)
+        # системонезависимый товар
+        self.p_plain = Product.objects.create(name="Пломбировочный материал", category=self.cat)
+
+    def test_detail_outputs_systems_and_fitment(self):
+        r = self.api.get(f"/api/products/{self.p_fit.slug}/")
+        self.assertEqual(r.status_code, 200)
+        slugs = [s["slug"] for s in r.data["systems"]]
+        self.assertEqual(slugs, ["implantatsiya-straumann-blt"])
+        self.assertEqual(r.data["fitment"], "compatible")
+
+    def test_list_outputs_system_slugs(self):
+        r = self.api.get(f"/api/products/?sku={self.p_fit.sku}")
+        item = [x for x in r.data["results"] if x["slug"] == self.p_fit.slug][0]
+        self.assertIn("implantatsiya-straumann-blt", item["systems"])
+        self.assertEqual(item["fitment"], "compatible")
+
+    def test_fitment_hidden_without_systems(self):
+        r = self.api.get(f"/api/products/{self.p_plain.slug}/")
+        self.assertEqual(r.data["systems"], [])
+        self.assertIsNone(r.data["fitment"])
+
+    def test_filter_by_system(self):
+        r = self.api.get("/api/products/?system=implantatsiya-straumann-blt")
+        slugs = [x["slug"] for x in r.data["results"]]
+        self.assertIn(self.p_fit.slug, slugs)
+        self.assertNotIn(self.p_plain.slug, slugs)
+
+    def test_systems_reference_endpoint(self):
+        r = self.api.get("/api/systems/")
+        results = r.data["results"] if isinstance(r.data, dict) and "results" in r.data else r.data
+        slugs = [s["slug"] for s in results]
+        self.assertIn("implantatsiya-straumann-blt", slugs)
+        self.assertIn("implantatsiya-dentium-superline", slugs)
+
+    def test_write_requires_fitment_when_system_set(self):
+        from catalog.serializers import ProductWriteSerializer
+        bad = ProductWriteSerializer(data={
+            "name": "Новый абатмент", "category": self.cat.id,
+            "compatibility_systems": [self.sys_straumann.id]})
+        self.assertFalse(bad.is_valid())
+        self.assertIn("fitment_type", bad.errors)
+        good = ProductWriteSerializer(data={
+            "name": "Новый абатмент 2", "category": self.cat.id,
+            "compatibility_systems": [self.sys_straumann.id], "fitment_type": "original"})
+        self.assertTrue(good.is_valid(), good.errors)
