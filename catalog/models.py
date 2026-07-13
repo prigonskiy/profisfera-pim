@@ -1,7 +1,7 @@
 from django.core.exceptions import ValidationError
 from django.core.validators import FileExtensionValidator
 from django.db import models, transaction
-from django.db.models.signals import post_delete, post_save
+from django.db.models.signals import m2m_changed, post_delete, post_save
 from django.dispatch import receiver
 from mptt.models import MPTTModel, TreeForeignKey
 from django.utils import timezone
@@ -718,6 +718,26 @@ def _generate_image_derivatives(sender, instance, **kwargs):
     """После сохранения изображения товара создать/обновить уменьшенные копии."""
     from .image_derivatives import sync_derivatives
     sync_derivatives(instance)
+
+
+@receiver(m2m_changed, sender=Product.directions.through)
+def _sync_audiences_from_directions(sender, instance, action, **kwargs):
+    """Аудитории товара выводятся из аудиторий его направлений.
+
+    Если у товара есть направления — его аудитории приводятся ровно к набору
+    аудиторий этих направлений (ручной выбор перекрывается). Если направлений
+    нет — аудитории остаются ручными (перчатки → «Общая медицина» и т.п.).
+    """
+    if action not in ("post_add", "post_remove", "post_clear"):
+        return
+    if not isinstance(instance, Product):
+        return  # реагируем только на изменение со стороны товара
+    audience_ids = set(
+        instance.directions.filter(audience__isnull=False)
+        .values_list("audience_id", flat=True)
+    )
+    if audience_ids:
+        instance.audiences.set(audience_ids)
 
 
 @receiver(post_delete, sender=ProductImage)

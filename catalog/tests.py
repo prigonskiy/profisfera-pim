@@ -937,3 +937,41 @@ class MediaDedupTests(TestCase):
         i = self._add(self.p1, self._png())
         inst = ProductImage.objects.get(pk=i.pk)
         self.assertEqual(migrate_to_cas(inst), 0)  # файлы уже под хеш-именами
+
+
+class AudienceFromDirectionsTests(TestCase):
+    """Аудитории товара выводятся из аудиторий его направлений."""
+
+    def setUp(self):
+        from catalog.models import Audience, Direction
+        # изолированные slug'и, чтобы не конфликтовать с засеянными миграцией 0008
+        self.a_stom = Audience.objects.create(name="Т-Стоматолог", slug="t-stom")
+        self.a_tech = Audience.objects.create(name="Т-Техник", slug="t-tech")
+        self.a_med = Audience.objects.create(name="Т-Медицина", slug="t-med")
+        self.d_terapiya = Direction.objects.create(name="Т-Терапия", slug="t-terapiya", audience=self.a_stom)
+        self.d_cadcam = Direction.objects.create(name="Т-CADCAM", slug="t-cadcam", audience=self.a_tech)
+        self.cat = Category.objects.create(name="Кат")
+
+    def _aud_slugs(self, product):
+        return set(product.audiences.values_list("slug", flat=True))
+
+    def test_audience_added_from_direction(self):
+        p = Product.objects.create(name="Товар 1", category=self.cat)
+        p.directions.add(self.d_terapiya)
+        self.assertEqual(self._aud_slugs(p), {"t-stom"})
+
+    def test_multiple_directions_union(self):
+        p = Product.objects.create(name="Товар 2", category=self.cat)
+        p.directions.set([self.d_terapiya, self.d_cadcam])
+        self.assertEqual(self._aud_slugs(p), {"t-stom", "t-tech"})
+
+    def test_removing_direction_updates_audiences(self):
+        p = Product.objects.create(name="Товар 3", category=self.cat)
+        p.directions.set([self.d_terapiya, self.d_cadcam])
+        p.directions.remove(self.d_cadcam)
+        self.assertEqual(self._aud_slugs(p), {"t-stom"})
+
+    def test_manual_audience_kept_without_directions(self):
+        p = Product.objects.create(name="Перчатки", category=self.cat)
+        p.audiences.add(self.a_med)  # ручной выбор, направлений нет
+        self.assertEqual(self._aud_slugs(p), {"t-med"})
