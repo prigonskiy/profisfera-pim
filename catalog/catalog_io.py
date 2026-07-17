@@ -33,6 +33,7 @@ from .models import (
 )
 
 MULTI_SEP = " | "
+CATEGORY_SEP = " | "  # разделитель пути категории (в отображении/экспорте; импорт идёт по slug)
 
 # Базовые (некатегорийные) столбцы: (заголовок, ключ, ширина)
 CORE_COLUMNS = [
@@ -84,7 +85,7 @@ def category_path(cat_id, cmap):
             break
         parts.append(name)
         cat_id = parent_id
-    return " / ".join(reversed(parts))
+    return CATEGORY_SEP.join(reversed(parts))
 
 
 def descendant_ids(root_id, cmap):
