@@ -1037,3 +1037,76 @@ class CompatibilitySystemTests(TestCase):
             "name": "Новый абатмент 2", "category": self.cat.id,
             "compatibility_systems": [self.sys_straumann.id], "fitment_type": "original"})
         self.assertTrue(good.is_valid(), good.errors)
+
+
+class VariantColorTests(TestCase):
+    """Цвет варианта: нормализация, валидация, выдача в API, Excel round-trip."""
+
+    def setUp(self):
+        from catalog.models import ProductGroup
+        self.api = APIClient()
+        self.cat = Category.objects.create(name="Керамика")
+        self.grp = ProductGroup.objects.create(name="SD Ceram Stain", slug="sd-ceram-stain")
+        self.p_beige = Product.objects.create(
+            name="SD Ceram Beige Fluor", category=self.cat, group=self.grp,
+            variant_label="Beige", variant_color="#C8A165")
+        self.p_kit = Product.objects.create(
+            name="SD Ceram Kit", category=self.cat, group=self.grp, variant_label="Kit")
+
+    def test_normalization_forms(self):
+        from catalog.utils import normalize_hex_color
+        self.assertEqual(normalize_hex_color("c8a165"), "#C8A165")
+        self.assertEqual(normalize_hex_color("  #c8a165 "), "#C8A165")
+        self.assertEqual(normalize_hex_color("#CA6"), "#CCAA66")
+        self.assertIsNone(normalize_hex_color("не цвет"))
+        self.assertIsNone(normalize_hex_color("rgb(1,2,3)"))
+        self.assertIsNone(normalize_hex_color(""))
+
+    def test_saved_in_canonical_form(self):
+        p = Product.objects.create(name="Тест цвет", category=self.cat, variant_color="a1b2c3")
+        p.refresh_from_db()
+        self.assertEqual(p.variant_color, "#A1B2C3")
+
+    def test_validator_rejects_garbage(self):
+        from django.core.exceptions import ValidationError
+        from catalog.utils import validate_hex_color
+        with self.assertRaises(ValidationError):
+            validate_hex_color("зелёненький")
+        validate_hex_color("")          # пусто — допустимо
+        validate_hex_color("#C8A165")   # корректно
+
+    def test_api_variant_exposes_color(self):
+        r = self.api.get(f"/api/products/{self.p_beige.slug}/")
+        self.assertEqual(r.status_code, 200)
+        variants = {v["label"]: v for v in r.data["group"]["variants"]}
+        self.assertEqual(variants["Beige"]["color"], "#C8A165")
+        # у товара без цвета (набор) поле есть, но пустое
+        self.assertIsNone(variants["Kit"]["color"])
+
+    def test_excel_roundtrip_color(self):
+        from catalog.catalog_io import build_export_workbook, import_workbook
+        from io import BytesIO
+        wb = build_export_workbook(Product.objects.filter(pk=self.p_beige.pk))
+        buf = BytesIO()
+        wb.save(buf)
+        buf.seek(0)
+        report = import_workbook(buf)
+        self.p_beige.refresh_from_db()
+        self.assertEqual(self.p_beige.variant_color, "#C8A165")
+        self.assertEqual(report.get("errors", []), [])
+
+    def test_excel_import_warns_on_bad_color(self):
+        from catalog.catalog_io import build_export_workbook, import_workbook
+        from io import BytesIO
+        wb = build_export_workbook(Product.objects.filter(pk=self.p_beige.pk))
+        ws = wb.active
+        headers = [c.value for c in ws[1]]           # строка 1 — машинные ключи
+        col = headers.index("variant_color") + 1
+        ws.cell(row=3, column=col, value="бежевенький")   # данные идут с 3-й строки
+        buf = BytesIO()
+        wb.save(buf)
+        buf.seek(0)
+        report = import_workbook(buf)
+        self.p_beige.refresh_from_db()
+        self.assertEqual(self.p_beige.variant_color, "#C8A165")  # старое значение уцелело
+        self.assertTrue(any("не похоже на цвет" in w for w in report["warnings"]), report["warnings"])

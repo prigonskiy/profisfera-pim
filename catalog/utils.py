@@ -39,6 +39,33 @@ def category_descendant_ids(category_id):
     return list(node.get_descendants(include_self=True).values_list("id", flat=True))
 
 
+def normalize_hex_color(value):
+    """Привести цвет к каноническому «#RRGGBB» или вернуть None, если это не цвет.
+
+    Принимает «#c8a165», «C8A165», «#CA6» (короткая форма) и пробелы по краям.
+    Ничего не выбрасывает — решение, что делать с непонятным значением,
+    принимает вызывающий код (форма ругается, импорт пишет предупреждение).
+    """
+    if not value:
+        return None
+    text = str(value).strip().lstrip("#").upper()
+    if len(text) == 3 and all(c in "0123456789ABCDEF" for c in text):
+        text = "".join(c * 2 for c in text)  # #CA6 → #CCAA66
+    if len(text) != 6 or not all(c in "0123456789ABCDEF" for c in text):
+        return None
+    return "#" + text
+
+
+def validate_hex_color(value):
+    """Валидатор поля: пусто допустимо, иначе обязателен корректный HEX."""
+    if not value:
+        return
+    if normalize_hex_color(value) is None:
+        raise ValidationError(
+            "Укажите цвет в формате #RRGGBB, например #C8A165."
+        )
+
+
 def validate_gtin(value):
     """
     Проверяет штрих-код по стандарту GTIN: только цифры, длина 8/12/13/14,

@@ -31,6 +31,7 @@ from .models import (
     Product,
     ProductAttributeValue,
 )
+from .utils import normalize_hex_color
 
 MULTI_SEP = " | "
 CATEGORY_SEP = " | "  # разделитель пути категории (в отображении/экспорте; импорт идёт по slug)
@@ -55,6 +56,8 @@ CORE_COLUMNS = [
     ("Масса брутто, кг", "gross_weight_kg", 16),
     ("Аудитории", "audiences", 28),
     ("Направления", "directions", 32),
+    ("Подпись варианта", "variant_label", 24),
+    ("Цвет варианта (HEX)", "variant_color", 18),
 ]
 
 HEADER_FILL = PatternFill("solid", fgColor="0E2A31")
@@ -466,9 +469,21 @@ def _apply_row(data, headers_present, char_columns, maps, report, row_no):
             if cat is None:
                 raise ValueError(f"категория со slug «{slug}» не найдена")
             product.category = cat
-    for f in ("manufacturer_sku", "gtin", "tnved_code", "short_description", "full_description"):
+    for f in ("manufacturer_sku", "gtin", "tnved_code", "short_description", "full_description",
+              "variant_label"):
         if f in headers_present:
             setattr(product, f, _s(data.get(f)))
+    if "variant_color" in headers_present:
+        raw_color = _s(data.get("variant_color"))
+        if raw_color:
+            normalized = normalize_hex_color(raw_color)
+            if normalized:
+                product.variant_color = normalized
+            else:
+                report["warnings"].append(
+                    f"строка {row_no}: «{raw_color}» не похоже на цвет #RRGGBB — пропущено")
+        else:
+            product.variant_color = ""
     if "country" in headers_present:
         product.country_of_origin = _s(data.get("country"))
     for dim in ("gross_width_mm", "gross_height_mm", "gross_depth_mm", "gross_weight_kg"):

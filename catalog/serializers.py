@@ -378,6 +378,7 @@ class ProductDetailSerializer(serializers.ModelSerializer):
             variants.append({
                 "slug": p.slug,
                 "label": p.variant_label or p.name,
+                "color": p.variant_color or None,  # #RRGGBB для образца-точки, либо null
                 "thumbnail": thumbnail,
                 "is_current": p.pk == obj.pk,
                 "level": p.group_level.name if p.group_level_id else None,
@@ -409,7 +410,7 @@ class ProductWriteSerializer(serializers.ModelSerializer):
             "compatibility_systems", "fitment_type",
             "gross_width_mm", "gross_height_mm", "gross_depth_mm", "gross_weight_kg",
             "documents",
-            "group", "group_order", "variant_label",
+            "group", "group_order", "variant_label", "variant_color",
         )
         extra_kwargs = {"slug": {"required": False}}
 

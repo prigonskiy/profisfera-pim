@@ -7,7 +7,7 @@ from mptt.models import MPTTModel, TreeForeignKey
 from django.utils import timezone
 from django_countries.fields import CountryField
 
-from .utils import unique_slugify, validate_gtin
+from .utils import normalize_hex_color, unique_slugify, validate_gtin, validate_hex_color
 from .storage import product_image_storage
 from .fitment import CompatibilitySystem, FitmentType  # noqa: F401
 from .offers import Seller, Region, Warehouse, Offer, OfferTerm  # noqa: F401
@@ -608,6 +608,14 @@ class Product(models.Model):
         blank=True,
         help_text="Короткая подпись для переключателя. Пусто — берётся название товара.",
     )
+    variant_color = models.CharField(
+        "Цвет варианта (HEX)",
+        max_length=7,
+        blank=True,
+        validators=[validate_hex_color],
+        help_text="Цвет образца в переключателе, напр. #C8A165. "
+                  "Пусто — чип останется текстовым (наборы, фасовки и т.п.).",
+    )
 
     # Навигационные фасеты: для кого и для какого направления
     audiences = models.ManyToManyField(
@@ -669,6 +677,9 @@ class Product(models.Model):
             self.slug = unique_slugify(self, self.name)
         if not self.sku:
             self.sku = str(SkuCounter.next_value())
+        # цвет варианта храним в каноническом виде «#RRGGBB» (из админки, Excel, API)
+        if self.variant_color:
+            self.variant_color = normalize_hex_color(self.variant_color) or self.variant_color
         super().save(*args, **kwargs)
 
 

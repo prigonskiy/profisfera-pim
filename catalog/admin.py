@@ -449,6 +449,9 @@ class ProductAdminForm(forms.ModelForm):
         widgets = {
             # Полное описание — визуальный редактор; краткое остаётся простым.
             "full_description": TinyMCE(),
+            # Цвет варианта — текстовое поле (пустое остаётся пустым),
+            # образец и пипетку добавляет variant_color.js
+            "variant_color": forms.TextInput(attrs={"class": "pim-hex-color", "maxlength": 7}),
         }
 
     def clean(self):
@@ -571,7 +574,7 @@ class ProductAdmin(admin.ModelAdmin):
     actions = ["export_general", "export_full", "make_active", "make_inactive"]
 
     class Media:
-        js = ("catalog/js/resizable_columns.js",)
+        js = ("catalog/js/resizable_columns.js", "catalog/js/variant_color.js")
 
     def get_queryset(self, request):
         # префетч изображений и документов, чтобы колонки не плодили запросы
