@@ -19,6 +19,7 @@ from django.urls import path, reverse
 from django.utils.html import format_html
 
 from .models import GroupLevel, Product, ProductGroup
+from .utils import normalize_hex_color
 
 
 def _member_dict(p):
@@ -27,6 +28,7 @@ def _member_dict(p):
         "name": p.name,
         "sku": p.manufacturer_sku or "",
         "variant_label": p.variant_label or "",
+        "variant_color": p.variant_color or "",
         "group_order": p.group_order,
         "group_level": p.group_level_id,
     }
@@ -153,10 +155,18 @@ class GroupEditorAdminMixin:
                 except Product.DoesNotExist:
                     continue
                 p.variant_label = (mm.get("variant_label") or "")[:255]
+                # цвет: пусто — очищаем; мусор — не трогаем прежнее значение
+                raw_color = (mm.get("variant_color") or "").strip()
+                if not raw_color:
+                    p.variant_color = ""
+                else:
+                    normalized = normalize_hex_color(raw_color)
+                    if normalized:
+                        p.variant_color = normalized
                 p.group_order = _to_int(mm.get("group_order"), p.group_order)
                 gl = mm.get("group_level")
                 p.group_level_id = gl if gl in level_ids else None
-                p.save(update_fields=["variant_label", "group_order", "group_level"])
+                p.save(update_fields=["variant_label", "variant_color", "group_order", "group_level"])
         return JsonResponse({"ok": True})
 
     # ---------- участники: add / remove (структурные) ----------

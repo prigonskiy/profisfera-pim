@@ -82,3 +82,17 @@ tr.ge-dragging, li.ge-dragging { opacity: .55; background: var(--selected-bg, rg
 tr.ge-ph td.ge-empty { border: 1px dashed var(--border-color); border-radius: 6px;
   text-align: center; padding: 12px; margin: 4px 0; }
 .ge-levels-list li .ge-grip { flex: none; }
+
+/* --- цвет варианта в строке участника --- */
+.ge-colorcell { white-space: nowrap; }
+.ge-colorcell .ge-sw {
+  display: inline-block; width: 18px; height: 18px; border-radius: 4px;
+  border: 1px solid #8a8a8a; vertical-align: middle; margin-right: 6px;
+  background: transparent;
+}
+.ge-colorcell .ge-sw-empty { border-style: dashed; opacity: .5; }
+.ge-colorcell .ge-sw-bad { border-color: #c0392b; }
+.ge-colorcell .ge-c {
+  width: 92px; font-family: ui-monospace, Menlo, Consolas, monospace;
+  text-transform: uppercase; vertical-align: middle;
+}

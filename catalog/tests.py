@@ -1110,3 +1110,55 @@ class VariantColorTests(TestCase):
         self.p_beige.refresh_from_db()
         self.assertEqual(self.p_beige.variant_color, "#C8A165")  # старое значение уцелело
         self.assertTrue(any("не похоже на цвет" in w for w in report["warnings"]), report["warnings"])
+
+
+class GroupEditorColorTests(TestCase):
+    """Редактор группировок: цвет варианта читается в состоянии и сохраняется."""
+
+    def setUp(self):
+        from django.contrib.auth.models import User
+        from django.test import Client as DjangoClient  # в проекте есть своя модель Client
+        from catalog.models import ProductGroup
+        self.staff = User.objects.create_superuser("ge_admin", "a@e.com", "pw12345!")
+        self.client = DjangoClient()
+        self.client.force_login(self.staff)
+        self.cat = Category.objects.create(name="Керамика GE")
+        self.grp = ProductGroup.objects.create(name="Серия GE", slug="seriya-ge")
+        self.p = Product.objects.create(name="Stain Beige", category=self.cat,
+                                        group=self.grp, variant_label="Beige",
+                                        variant_color="#C8A165")
+
+    def _state(self):
+        return self.client.get(f"/admin/catalog/productgroup/{self.grp.pk}/editor/state/")
+
+    def _save(self, payload):
+        import json
+        return self.client.post(f"/admin/catalog/productgroup/{self.grp.pk}/editor/save/",
+                                data=json.dumps(payload), content_type="application/json")
+
+    def test_state_includes_color(self):
+        r = self._state()
+        self.assertEqual(r.status_code, 200)
+        member = r.json()["members"][0]
+        self.assertEqual(member["variant_color"], "#C8A165")
+
+    def test_save_updates_color_and_normalizes(self):
+        r = self._save({"members": [{"id": self.p.pk, "variant_label": "Beige",
+                                     "variant_color": "a1b2c3",
+                                     "group_order": 0, "group_level": None}]})
+        self.assertEqual(r.status_code, 200)
+        self.p.refresh_from_db()
+        self.assertEqual(self.p.variant_color, "#A1B2C3")
+
+    def test_save_empty_clears_color(self):
+        self._save({"members": [{"id": self.p.pk, "variant_label": "Beige",
+                                 "variant_color": "", "group_order": 0, "group_level": None}]})
+        self.p.refresh_from_db()
+        self.assertEqual(self.p.variant_color, "")
+
+    def test_save_garbage_keeps_previous(self):
+        self._save({"members": [{"id": self.p.pk, "variant_label": "Beige",
+                                 "variant_color": "бежевенький",
+                                 "group_order": 0, "group_level": None}]})
+        self.p.refresh_from_db()
+        self.assertEqual(self.p.variant_color, "#C8A165")

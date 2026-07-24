@@ -46,6 +46,11 @@
       return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
     });
   }
+  function normHex(v) {
+    var t = String(v == null ? "" : v).trim().replace(/^#/, "").toUpperCase();
+    if (/^[0-9A-F]{3}$/.test(t)) t = t.split("").map(function (c) { return c + c; }).join("");
+    return /^[0-9A-F]{6}$/.test(t) ? "#" + t : null;
+  }
   function debounce(fn, ms) {
     var t;
     return function () { var a = arguments, self = this; clearTimeout(t); t = setTimeout(function () { fn.apply(self, a); }, ms || 300); };
@@ -80,6 +85,10 @@
         (m.sku ? '<div class="ge-psku">Артикул: ' + esc(m.sku) + "</div>" : "") + "</td>" +
       '<td><input type="text" class="ge-m" data-f="variant_label" value="' + esc(m.variant_label) +
         '" placeholder="подпись на кнопке"></td>' +
+      '<td class="ge-colorcell">' +
+        '<span class="ge-sw"></span>' +
+        '<input type="text" class="ge-c" data-f="variant_color" maxlength="7" value="' +
+        esc(m.variant_color || "") + '" placeholder="#RRGGBB"></td>' +
       '<td class="ge-actcell"><button type="button" class="ge-del" data-act="remove">убрать</button></td>' +
       "</tr>";
   }
@@ -87,7 +96,7 @@
     var members = state.members.filter(function (m) { return m.group_level === levelId; }).sort(byMemberOrder);
     var rows = members.length
       ? members.map(memberRow).join("")
-      : '<tr class="ge-ph"><td colspan="4" class="ge-empty">— перетащите сюда товары —</td></tr>';
+      : '<tr class="ge-ph"><td colspan="5" class="ge-empty">— перетащите сюда товары —</td></tr>';
     return '<div class="ge-lgroup"><h3 class="ge-section-title">' + esc(title) + "</h3>" +
       '<table class="ge-table"><tbody data-level="' + (levelId == null ? "" : levelId) + '">' + rows + "</tbody></table></div>";
   }
@@ -145,7 +154,8 @@
         name: state.group.name,
         levels: state.levels.map(function (l) { return { id: l.id, name: l.name, order: l.order }; }),
         members: state.members.map(function (m) {
-          return { id: m.id, variant_label: m.variant_label, group_level: m.group_level, group_order: m.group_order };
+          return { id: m.id, variant_label: m.variant_label, variant_color: m.variant_color,
+                   group_level: m.group_level, group_order: m.group_order };
         }),
       },
     });
@@ -264,6 +274,28 @@
       var m = byId(state.members, id);
       var labelInp = tr.querySelector("input.ge-m");
       if (labelInp) labelInp.addEventListener("input", function () { if (m) { m.variant_label = labelInp.value; markDirty(); } });
+      var colorInp = tr.querySelector("input.ge-c");
+      var swatch = tr.querySelector("span.ge-sw");
+      if (colorInp) {
+        var paint = function () {
+          var hex = normHex(colorInp.value);
+          if (swatch) {
+            swatch.style.background = hex || "transparent";
+            swatch.className = "ge-sw" + (hex ? "" : (colorInp.value ? " ge-sw-bad" : " ge-sw-empty"));
+            swatch.title = hex || (colorInp.value ? "Не похоже на #RRGGBB" : "Цвет не задан");
+          }
+        };
+        colorInp.addEventListener("input", function () {
+          if (m) { m.variant_color = colorInp.value; markDirty(); }
+          paint();
+        });
+        colorInp.addEventListener("change", function () {
+          var hex = normHex(colorInp.value);
+          if (hex) { colorInp.value = hex; if (m) { m.variant_color = hex; markDirty(); } }
+          paint();
+        });
+        paint();
+      }
       var rm = tr.querySelector('[data-act="remove"]');
       if (rm) rm.addEventListener("click", function () {
         if (!confirm("Убрать товар из серии?")) return;
