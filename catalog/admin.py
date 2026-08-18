@@ -53,6 +53,7 @@ from . import admin_offers  # noqa: F401
 from . import admin_clients  # noqa: F401
 from . import admin_education  # noqa: F401
 from . import admin_fitment  # noqa: F401
+from . import admin_cases  # noqa: F401
 from . import admin_grouping  # noqa: F401
 
 admin.site.site_header = "ProfiSfera PIM"

@@ -1162,3 +1162,107 @@ class GroupEditorColorTests(TestCase):
                                  "group_order": 0, "group_level": None}]})
         self.p.refresh_from_db()
         self.assertEqual(self.p.variant_color, "#C8A165")
+
+
+class CaseModelTests(TestCase):
+    """Кейсы v1, стадия A: нумерация, slug, зубные фасеты, профиль, валидация."""
+
+    def setUp(self):
+        from catalog.models import Audience, Direction
+        self.a_stom, _ = Audience.objects.get_or_create(slug="stomatolog", defaults={"name": "Стоматолог"})
+        self.a_tech, _ = Audience.objects.get_or_create(slug="zubnoy-tehnik", defaults={"name": "Зубной техник"})
+        self.d_ortho, _ = Direction.objects.get_or_create(
+            slug="ortodontiya", defaults={"name": "Ортодонтия", "audience": self.a_stom})
+        self.cat = Category.objects.create(name="Кат")
+
+    def test_tooth_facets_pure(self):
+        from catalog.cases import tooth_facets
+        arches, sides, groups, dent = tooth_facets(["46", "11", "63"])
+        self.assertEqual(arches, ["lower", "upper"])
+        self.assertEqual(set(sides), {"right", "left"})
+        self.assertIn("molars", groups)      # 46
+        self.assertIn("incisors", groups)    # 11
+        self.assertIn("canines", groups)     # 63 (молочный клык)
+        self.assertEqual(set(dent), {"permanent", "primary"})
+
+    def test_case_number_sequential_and_unique(self):
+        from catalog.cases import Case
+        c1 = Case.objects.create(title="Первый")
+        c2 = Case.objects.create(title="Второй")
+        self.assertEqual(c2.case_number, c1.case_number + 1)
+
+    def test_slug_generated_and_locked_on_publish(self):
+        from catalog.cases import Case, CaseMedia
+        c = Case.objects.create(title="Экструзия зуба", body_html="<p>текст</p>")
+        self.assertTrue(c.slug.endswith(str(c.case_number)))
+        old_slug = c.slug
+        # закроем блокеры и опубликуем
+        c.directions.add(self.d_ortho)
+        CaseMedia.objects.create(case=c, image=self._img())
+        c.status = Case.Status.PUBLISHED
+        c.title = "Совсем другой заголовок"
+        c.save()
+        c.refresh_from_db()
+        self.assertTrue(c.slug_locked)
+        self.assertEqual(c.slug, old_slug)          # slug заморожен
+        self.assertIsNotNone(c.published_at)
+
+    def test_facets_from_save(self):
+        from catalog.cases import Case
+        c = Case.objects.create(title="Зубы", tooth_scope="teeth", teeth=["46", "47"])
+        self.assertEqual(c.arches, ["lower"])
+        self.assertEqual(c.dentition, ["permanent"])
+        self.assertIn("molars", c.tooth_groups)
+
+    def test_full_mouth_sets_both_arches(self):
+        from catalog.cases import Case
+        c = Case.objects.create(title="Полный рот", tooth_scope="full_mouth")
+        self.assertEqual(c.arches, ["lower", "upper"])
+        self.assertEqual(c.teeth, [])
+
+    def test_profile_from_audiences(self):
+        from catalog.cases import Case
+        c = Case.objects.create(title="Профиль")
+        c.audiences.add(self.a_stom)
+        c.refresh_from_db()
+        self.assertEqual(c.case_profile, "clinical")
+        c.audiences.add(self.a_tech)
+        c.refresh_from_db()
+        self.assertEqual(c.case_profile, "joint")
+
+    def test_clean_rejects_bad_teeth(self):
+        from django.core.exceptions import ValidationError
+        from catalog.cases import Case
+        c = Case(title="Плохие зубы", tooth_scope="teeth", teeth=["99", "4"])
+        with self.assertRaises(ValidationError):
+            c.clean()
+
+    def test_publish_blockers(self):
+        from catalog.cases import Case
+        c = Case.objects.create(title="Черновик", body_html="")
+        reasons = c.publish_blockers()
+        self.assertIn("пустое тело кейса", reasons)
+        self.assertTrue(any("направлени" in r for r in reasons))
+
+    def test_case_product_unique(self):
+        from django.db import IntegrityError
+        from catalog.cases import Case, CaseProduct
+        c = Case.objects.create(title="Товары")
+        p = Product.objects.create(name="Товар кейса", category=self.cat)
+        CaseProduct.objects.create(case=c, product=p)
+        with self.assertRaises(IntegrityError):
+            CaseProduct.objects.create(case=c, product=p)
+
+    def test_media_alt_autofill(self):
+        from catalog.cases import Case, CaseMedia
+        c = Case.objects.create(title="Кейс с фото")
+        m = CaseMedia.objects.create(case=c, image=self._img(), caption="Петля для экструзии")
+        self.assertEqual(m.alt, "Петля для экструзии")
+
+    def _img(self):
+        from io import BytesIO
+        from PIL import Image
+        from django.core.files.uploadedfile import SimpleUploadedFile
+        buf = BytesIO()
+        Image.new("RGB", (60, 40), (200, 100, 50)).save(buf, format="JPEG")
+        return SimpleUploadedFile("c.jpg", buf.getvalue(), "image/jpeg")
