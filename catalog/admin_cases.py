@@ -1,4 +1,5 @@
-"""Админка кейсов (v1, базовая). Полноценный редактор тела с медиатекой — стадия C."""
+"""Админка кейсов (v1). Тело — TinyMCE, зубная формула — интерактивная карта.
+Полноценный редактор тела с медиатекой — стадия C."""
 from django import forms
 from django.contrib import admin
 from django.utils.html import format_html
@@ -55,6 +56,10 @@ class CaseAdmin(admin.ModelAdmin):
         ("SEO", {"fields": ("meta_title", "meta_description"), "classes": ("collapse",)}),
     )
 
+    class Media:
+        js = ("catalog/js/tooth_chart.js",)
+        css = {"all": ("catalog/css/tooth_chart.css",)}
+
     @admin.display(description="Готовность к публикации")
     def publish_state(self, obj):
         if not obj or not obj.pk:
@@ -66,7 +71,6 @@ class CaseAdmin(admin.ModelAdmin):
                             "; ".join(blockers))
 
     def save_model(self, request, obj, form, change):
-        # не даём опубликовать кейс с незакрытыми блокерами
         if obj.status == Case.Status.PUBLISHED:
             blockers = obj.publish_blockers()
             if blockers:
