@@ -1,18 +1,32 @@
-"""Админка кейсов (v1). Тело — TinyMCE, зубная формула — интерактивная карта.
-Полноценный редактор тела с медиатекой — стадия C."""
+"""Админка кейсов (v1). Тело — TinyMCE + медиатека, зубная формула — карта."""
 from django import forms
 from django.contrib import admin
+from django.http import JsonResponse
+from django.templatetags.static import static
+from django.urls import path
 from django.utils.html import format_html
 from tinymce.widgets import TinyMCE
 
 from .cases import Case, CaseMedia, CaseProduct
 
 
+CASE_TOOLBAR = ("undo redo | blocks | bold italic underline | "
+                "alignleft aligncenter alignright | bullist numlist | "
+                "link image table | casemedia | code fullscreen | removeformat")
+
+
 class CaseAdminForm(forms.ModelForm):
     class Meta:
         model = Case
         fields = "__all__"
-        widgets = {"body_html": TinyMCE()}
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # кнопка «Галерея» — только на форме кейса (в товарах TinyMCE без неё)
+        self.fields["body_html"].widget = TinyMCE(mce_attrs={
+            "external_plugins": {"casemedia": static("catalog/js/tinymce_casemedia.js")},
+            "toolbar": CASE_TOOLBAR,
+        })
 
 
 class CaseMediaInline(admin.TabularInline):
@@ -59,6 +73,29 @@ class CaseAdmin(admin.ModelAdmin):
     class Media:
         js = ("catalog/js/tooth_chart.js",)
         css = {"all": ("catalog/css/tooth_chart.css",)}
+
+    def get_urls(self):
+        urls = super().get_urls()
+        info = self.model._meta.app_label, self.model._meta.model_name
+        custom = [
+            path("<int:pk>/media-json/", self.admin_site.admin_view(self.media_json),
+                 name="%s_%s_media_json" % info),
+        ]
+        return custom + urls
+
+    def media_json(self, request, pk):
+        """Список изображений галереи кейса для медиатеки в редакторе тела."""
+        case = self.get_object(request, pk)
+        results = []
+        if case is not None:
+            for m in case.media.all():
+                src = m.thumb or m.image
+                results.append({
+                    "id": m.pk,
+                    "thumb": request.build_absolute_uri(src.url) if src else "",
+                    "caption": m.caption or "",
+                })
+        return JsonResponse({"results": results})
 
     @admin.display(description="Готовность к публикации")
     def publish_state(self, obj):

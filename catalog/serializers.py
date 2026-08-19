@@ -1,6 +1,8 @@
 from decimal import Decimal, ROUND_HALF_UP
+import re
 
 from django.conf import settings
+from django.utils.html import escape as html_escape
 from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import extend_schema_field
 from rest_framework import serializers
@@ -450,6 +452,32 @@ def _abs_url(request, filefield):
     return request.build_absolute_uri(url) if request else url
 
 
+_FIGURE_RE = re.compile(r'<figure\b[^>]*\bdata-media="(\d+)"[^>]*>.*?</figure>',
+                        re.DOTALL | re.IGNORECASE)
+
+
+def render_case_body(body_html, media_by_id, request):
+    """Подставить в тело кейса актуальные URL деривативов вместо того, что вставил
+    редактор: каждый <figure data-media="ID"> перерисовывается по свежему preview.
+    Если картинку из галереи удалили — блок вырезается целиком."""
+    if not body_html:
+        return body_html or ""
+
+    def repl(match):
+        mid = int(match.group(1))
+        media = media_by_id.get(mid)
+        if media is None:
+            return ""  # удалённая картинка — убираем figure целиком
+        src = _abs_url(request, media.preview or media.image) or ""
+        alt = html_escape(media.alt or media.caption or "")
+        caption = html_escape(media.caption or "")
+        figcaption = f"<figcaption>{caption}</figcaption>" if caption else ""
+        return (f'<figure data-media="{mid}">'
+                f'<img src="{src}" alt="{alt}" loading="lazy">{figcaption}</figure>')
+
+    return _FIGURE_RE.sub(repl, body_html)
+
+
 class CaseMediaSerializer(serializers.ModelSerializer):
     thumb = serializers.SerializerMethodField()
     preview = serializers.SerializerMethodField()
@@ -521,6 +549,7 @@ class CaseTileSerializer(serializers.ModelSerializer):
 
 class CaseDetailSerializer(CaseTileSerializer):
     """Полный кейс — страница /cases/{slug}/."""
+    body_html = serializers.SerializerMethodField()
     media = serializers.SerializerMethodField()
     products = CaseProductSerializer(many=True, read_only=True)
 
@@ -530,6 +559,11 @@ class CaseDetailSerializer(CaseTileSerializer):
             "tooth_groups", "tooth_sides", "dentition",
             "meta_title", "meta_description", "media", "products",
         )
+
+    @extend_schema_field(OpenApiTypes.STR)
+    def get_body_html(self, obj):
+        media_by_id = {m.pk: m for m in obj.media.all()}
+        return render_case_body(obj.body_html, media_by_id, self.context.get("request"))
 
     @extend_schema_field(CaseMediaSerializer(many=True))
     def get_media(self, obj):

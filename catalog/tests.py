@@ -1324,3 +1324,72 @@ class CaseAPITests(TestCase):
         case_slugs = [c["slug"] for c in r.data["cases"]]
         self.assertIn(self.pub.slug, case_slugs)
         self.assertNotIn(self.draft.slug, case_slugs)  # черновик не показывается
+
+
+class CaseBodyMediaTests(TestCase):
+    """Стадия C: подстановка data-media → preview-URL в теле кейса."""
+
+    def setUp(self):
+        import shutil
+        self.tmp = tempfile.mkdtemp()
+        ov = override_settings(MEDIA_ROOT=self.tmp)
+        ov.enable()
+        self.addCleanup(ov.disable)
+        self.addCleanup(lambda: shutil.rmtree(self.tmp, ignore_errors=True))
+        self.api = APIClient()
+        self.cat = Category.objects.create(name="Кат")
+
+    def _img(self, w=2000, h=1500):
+        from io import BytesIO
+        from PIL import Image
+        from django.core.files.uploadedfile import SimpleUploadedFile
+        buf = BytesIO()
+        Image.new("RGB", (w, h), (180, 90, 40)).save(buf, format="JPEG")
+        return SimpleUploadedFile("m.jpg", buf.getvalue(), "image/jpeg")
+
+    def _published_case_with_media(self):
+        from catalog.cases import Case, CaseMedia
+        from catalog.models import Audience, Direction
+        a, _ = Audience.objects.get_or_create(slug="stomatolog", defaults={"name": "Ст"})
+        d, _ = Direction.objects.get_or_create(slug="terapiya", defaults={"name": "Тер", "audience": a})
+        c = Case.objects.create(title="Кейс с фото в тексте")
+        c.directions.add(d)
+        m = CaseMedia(case=c, caption="Рабочее фото")
+        m.image.save("g.jpg", self._img())
+        m.refresh_from_db()
+        c.body_html = (f'<p>До лечения:</p>'
+                       f'<figure data-media="{m.pk}"><img src="/stale/thumb.webp"><figcaption>старое</figcaption></figure>'
+                       f'<p>После.</p>')
+        c.status = Case.Status.PUBLISHED
+        c.save()
+        return c, m
+
+    def test_body_substitutes_preview_url(self):
+        c, m = self._published_case_with_media()
+        r = self.api.get(f"/api/cases/{c.slug}/")
+        body = r.data["body_html"]
+        self.assertIn(f'data-media="{m.pk}"', body)
+        self.assertIn(m.preview.url, body)          # актуальный preview подставлен
+        self.assertNotIn("/stale/thumb.webp", body)  # то, что вставил редактор, ушло
+        self.assertIn("<p>После.</p>", body)         # остальной HTML цел
+
+    def test_deleted_media_figure_removed(self):
+        c, m = self._published_case_with_media()
+        m.delete()
+        r = self.api.get(f"/api/cases/{c.slug}/")
+        body = r.data["body_html"]
+        self.assertNotIn("data-media", body)     # битый figure вырезан целиком
+        self.assertNotIn("<figure", body)
+        self.assertIn("<p>После.</p>", body)     # текст вокруг сохранён
+
+    def test_media_json_endpoint(self):
+        from django.contrib.auth.models import User
+        from django.test import Client as DjangoClient
+        c, m = self._published_case_with_media()
+        staff = User.objects.create_superuser("cadm", "c@e.com", "pw12345!")
+        cl = DjangoClient()
+        cl.force_login(staff)
+        r = cl.get(f"/admin/catalog/case/{c.pk}/media-json/")
+        self.assertEqual(r.status_code, 200)
+        ids = [x["id"] for x in r.json()["results"]]
+        self.assertIn(m.pk, ids)
