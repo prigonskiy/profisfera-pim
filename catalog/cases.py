@@ -10,7 +10,7 @@
 """
 from django.core.exceptions import ValidationError
 from django.db import models, transaction
-from django.db.models.signals import m2m_changed
+from django.db.models.signals import m2m_changed, post_save
 from django.dispatch import receiver
 from django.utils import timezone
 
@@ -155,6 +155,12 @@ class Case(models.Model):
     def __str__(self):
         return f"№{self.case_number} {self.title}" if self.case_number else self.title
 
+    @classmethod
+    def from_db(cls, db, field_names, values):
+        inst = super().from_db(db, field_names, values)
+        inst._cover_src = inst.cover.name if inst.cover else ""
+        return inst
+
     # ---- вычисления ----
 
     def _apply_tooth_facets(self):
@@ -244,6 +250,12 @@ class CaseMedia(models.Model):
         verbose_name_plural = "Изображения кейса"
         ordering = ["order", "id"]
 
+    @classmethod
+    def from_db(cls, db, field_names, values):
+        inst = super().from_db(db, field_names, values)
+        inst._img_src = inst.image.name if inst.image else ""
+        return inst
+
     def save(self, *args, **kwargs):
         if not self.alt:
             self.alt = self.caption or (self.case.title if self.case_id else "")
@@ -270,6 +282,18 @@ class CaseProduct(models.Model):
 
     def __str__(self):
         return f"{self.product}"
+
+
+@receiver(post_save, sender=Case)
+def _case_cover_derivatives(sender, instance, **kwargs):
+    from .case_images import sync_case_cover
+    sync_case_cover(instance)
+
+
+@receiver(post_save, sender=CaseMedia)
+def _case_media_derivatives(sender, instance, **kwargs):
+    from .case_images import sync_case_media
+    sync_case_media(instance)
 
 
 @receiver(m2m_changed, sender=Case.audiences.through)

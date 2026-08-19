@@ -17,6 +17,9 @@ from .models import (
     CompatibilitySystem,
     Product,
     ProductImage,
+    Case,
+    CaseMedia,
+    CaseProduct,
 )
 
 
@@ -231,6 +234,7 @@ class ProductDetailSerializer(serializers.ModelSerializer):
     price_from = serializers.SerializerMethodField()
     offers = serializers.SerializerMethodField()
     courses = serializers.SerializerMethodField()
+    cases = serializers.SerializerMethodField()
 
     class Meta:
         model = Product
@@ -239,7 +243,7 @@ class ProductDetailSerializer(serializers.ModelSerializer):
             "manufacturer_sku", "gtin", "tnved_code", "country_of_origin",
             "brand", "category", "audiences", "directions", "systems", "fitment", "logistics",
             "images", "characteristics", "documents", "group",
-            "price_from", "offers", "courses",
+            "price_from", "offers", "courses", "cases",
         )
 
     @extend_schema_field(OpenApiTypes.STR)
@@ -247,6 +251,14 @@ class ProductDetailSerializer(serializers.ModelSerializer):
         if obj.fitment_type and obj.compatibility_systems.all():
             return obj.fitment_type
         return None
+
+    @extend_schema_field({"type": "array", "items": {"type": "object"}})
+    def get_cases(self, obj):
+        # опубликованные кейсы, где присутствует этот товар, свежие первыми
+        qs = (Case.objects.filter(products__product=obj, status=Case.Status.PUBLISHED)
+              .distinct().order_by("-published_at", "-created_at")
+              .prefetch_related("directions", "audiences"))
+        return CaseTileSerializer(qs, many=True, context=self.context).data
 
     @extend_schema_field({"type": "array", "items": {"type": "object"}})
     def get_courses(self, obj):
@@ -426,3 +438,100 @@ class ProductWriteSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError(
                 {"fitment_type": "Укажите «оригинал/совместимый» при заполненной системе совместимости."})
         return attrs
+
+
+# ---------------------------------------------------------------------------
+# Клинические/зуботехнические кейсы (публичная выдача)
+# ---------------------------------------------------------------------------
+def _abs_url(request, filefield):
+    if not filefield:
+        return None
+    url = filefield.url
+    return request.build_absolute_uri(url) if request else url
+
+
+class CaseMediaSerializer(serializers.ModelSerializer):
+    thumb = serializers.SerializerMethodField()
+    preview = serializers.SerializerMethodField()
+
+    class Meta:
+        model = CaseMedia
+        fields = ("thumb", "preview", "caption", "alt", "width", "height", "order")
+
+    @extend_schema_field(OpenApiTypes.URI)
+    def get_thumb(self, obj):
+        return _abs_url(self.context.get("request"), obj.thumb or obj.image)
+
+    @extend_schema_field(OpenApiTypes.URI)
+    def get_preview(self, obj):
+        return _abs_url(self.context.get("request"), obj.preview or obj.image)
+
+
+class CaseProductSerializer(serializers.ModelSerializer):
+    """Товар внутри кейса (каноническая карточка + примечание из привязки)."""
+    slug = serializers.CharField(source="product.slug", read_only=True)
+    name = serializers.CharField(source="product.name", read_only=True)
+    brand = serializers.StringRelatedField(source="product.brand", read_only=True)
+    image = serializers.SerializerMethodField()
+    price_from = serializers.SerializerMethodField()
+    has_offers = serializers.SerializerMethodField()
+
+    class Meta:
+        model = CaseProduct
+        fields = ("slug", "name", "brand", "image", "price_from", "has_offers", "note", "order")
+
+    @extend_schema_field(OpenApiTypes.URI)
+    def get_image(self, obj):
+        first = obj.product.images.all().first()
+        if not first:
+            return None
+        return _abs_url(self.context.get("request"), first.card or first.image)
+
+    @extend_schema_field(OpenApiTypes.DECIMAL)
+    def get_price_from(self, obj):
+        return price_from(obj.product)
+
+    @extend_schema_field(OpenApiTypes.BOOL)
+    def get_has_offers(self, obj):
+        return obj.product.offers.exists()
+
+
+class CaseTileSerializer(serializers.ModelSerializer):
+    """Плитка кейса — для списков, раздела и блока «Кейсы с этим товаром»."""
+    cover = serializers.SerializerMethodField()
+    directions = serializers.SlugRelatedField(slug_field="slug", many=True, read_only=True)
+    audiences = serializers.SlugRelatedField(slug_field="slug", many=True, read_only=True)
+
+    class Meta:
+        model = Case
+        fields = ("case_number", "slug", "title", "case_profile", "cover",
+                  "directions", "audiences", "published_at")
+
+    @extend_schema_field(OpenApiTypes.OBJECT)
+    def get_cover(self, obj):
+        if not obj.cover:
+            return None
+        request = self.context.get("request")
+        return {
+            "thumb": _abs_url(request, obj.cover_thumb or obj.cover),
+            "og": _abs_url(request, obj.cover_og or obj.cover),
+            "alt": obj.title,
+        }
+
+
+class CaseDetailSerializer(CaseTileSerializer):
+    """Полный кейс — страница /cases/{slug}/."""
+    media = serializers.SerializerMethodField()
+    products = CaseProductSerializer(many=True, read_only=True)
+
+    class Meta(CaseTileSerializer.Meta):
+        fields = CaseTileSerializer.Meta.fields + (
+            "body_html", "author_line", "tooth_scope", "teeth", "arches",
+            "tooth_groups", "tooth_sides", "dentition",
+            "meta_title", "meta_description", "media", "products",
+        )
+
+    @extend_schema_field(CaseMediaSerializer(many=True))
+    def get_media(self, obj):
+        gallery = [m for m in obj.media.all() if m.show_in_gallery]
+        return CaseMediaSerializer(gallery, many=True, context=self.context).data

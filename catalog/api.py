@@ -9,12 +9,14 @@ from rest_framework.response import Response
 
 from drf_spectacular.utils import OpenApiParameter, extend_schema, extend_schema_view
 
-from .models import Audience, Brand, Category, Characteristic, CompatibilitySystem, Direction, Document, Product
+from .models import Audience, Brand, Case, Category, Characteristic, CompatibilitySystem, Direction, Document, Product
 from .permissions import IsStaffOrReadOnly
 from .utils import category_descendant_ids
 from .serializers import (
     AudienceMenuSerializer,
     AudienceSerializer,
+    CaseDetailSerializer,
+    CaseTileSerializer,
     CompatibilitySystemSerializer,
     BrandSerializer,
     CategorySerializer,
@@ -115,6 +117,37 @@ class CompatibilitySystemViewSet(viewsets.ModelViewSet):
         if group:
             qs = qs.filter(group=group)
         return qs
+
+
+class CaseViewSet(viewsets.ReadOnlyModelViewSet):
+    """Клинические/зуботехнические кейсы. Публично — только опубликованные;
+    staff видит и черновики (для предпросмотра). Фильтры для раздела витрины:
+    ?profile=clinical,joint  ?direction=<slug,slug>  ?featured=1"""
+    permission_classes = [IsStaffOrReadOnly]
+    lookup_field = "slug"
+
+    def get_serializer_class(self):
+        return CaseDetailSerializer if self.action == "retrieve" else CaseTileSerializer
+
+    def get_queryset(self):
+        qs = Case.objects.prefetch_related("directions", "audiences")
+        if self.action == "retrieve":
+            qs = qs.prefetch_related(
+                "media", "products__product__images", "products__product__offers")
+        user = getattr(self.request, "user", None)
+        if not (user and user.is_staff):
+            qs = qs.filter(status=Case.Status.PUBLISHED)
+        p = self.request.query_params
+        profile = p.get("profile")
+        if profile:
+            qs = qs.filter(case_profile__in=[s.strip() for s in profile.split(",") if s.strip()])
+        direction = p.get("direction")
+        if direction:
+            slugs = [s.strip() for s in direction.split(",") if s.strip()]
+            qs = qs.filter(directions__slug__in=slugs).distinct()
+        if p.get("featured") in ("1", "true", "yes"):
+            qs = qs.filter(is_featured=True)
+        return qs.order_by("-published_at", "-created_at")
 
 
 @extend_schema_view(

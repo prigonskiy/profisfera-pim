@@ -1,27 +1,31 @@
-/* Зубная карта в админке кейса */
-.tc-box { max-width: 760px; margin: 4px 0 8px; }
+/* Зубная карта в админке кейса. Нейтральные поверхности/текст — через
+   CSS-переменные админки (адаптируются к тёмной и светлой теме),
+   бирюзовый акцент фиксированный (читается на обеих). */
+.tc-box { --tc-accent: #17a08f; --tc-accent-strong: #0f8676; max-width: 760px; margin: 4px 0 8px; }
 .tc-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 12px; }
 
 .tc-chip {
   font: inherit; font-size: 13px; line-height: 1; cursor: pointer;
   padding: 8px 14px; border-radius: 999px;
-  border: 1px solid #cfd8d6; background: #fff; color: #33413f;
+  border: 1px solid var(--border-color, #ccc);
+  background: var(--body-bg, #fff); color: var(--body-fg, #333);
   transition: border-color .12s, background .12s, color .12s;
 }
-.tc-chip:hover:not(.tc-dis) { border-color: #0d8074; color: #0d8074; }
-.tc-chip.tc-on { background: #0d7d72; border-color: #0d7d72; color: #fff; }
-.tc-chip.tc-dis { opacity: .5; cursor: not-allowed; }
+.tc-chip:hover:not(.tc-dis) { border-color: var(--tc-accent); color: var(--tc-accent); }
+.tc-chip.tc-on { background: var(--tc-accent-strong); border-color: var(--tc-accent-strong); color: #fff; }
+.tc-chip.tc-dis { opacity: .45; cursor: not-allowed; }
 
 .tc-clear { margin-left: auto; border: 0; background: none; cursor: pointer;
-  font-size: 12px; color: #6b7a78; text-decoration: underline; }
-.tc-clear:hover { color: #26332f; }
+  font-size: 12px; color: var(--body-quiet-color, #888); text-decoration: underline; }
+.tc-clear:hover { color: var(--body-fg, #333); }
 
-.tc-note { max-width: 42rem; margin: 0 0 12px; font-size: 12px; color: #6b7a78; line-height: 1.5; }
+.tc-note { max-width: 42rem; margin: 0 0 12px; font-size: 12px;
+  color: var(--body-quiet-color, #888); line-height: 1.5; }
 
-.tc-grid { border: 1px solid #dfe5e3; border-radius: 8px; background: #fff;
-  padding: 12px; overflow-x: auto; }
-.tc-grid.tc-locked { background: #f2f4f4; opacity: .5; }
-.tc-lockmsg { text-align: center; font-size: 12px; color: #6b7a78; margin-bottom: 8px; }
+.tc-grid { border: 1px solid var(--border-color, #ccc); border-radius: 8px;
+  background: var(--body-bg, #fff); padding: 12px; overflow-x: auto; }
+.tc-grid.tc-locked { background: var(--darkened-bg, #f2f2f2); opacity: .55; }
+.tc-lockmsg { text-align: center; font-size: 12px; color: var(--body-quiet-color, #888); margin-bottom: 8px; }
 
 .tc-teethrow { display: flex; gap: 4px; justify-content: center; }
 .tc-teethrow + .tc-teethrow { margin-top: 6px; }
@@ -29,16 +33,19 @@
 .tc-tooth {
   width: 34px; height: 36px; flex: 0 0 auto;
   font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 12px;
-  border-radius: 6px; border: 1px solid #dfe5e3; background: #f7f9f8; color: #5b6a67;
+  border-radius: 6px; border: 1px solid var(--border-color, #ccc);
+  background: var(--darkened-bg, #f6f6f6); color: var(--body-fg, #333);
   cursor: pointer; transition: border-color .12s, background .12s, color .12s;
 }
-.tc-tooth:hover:not(:disabled) { border-color: #35a99b; color: #0d8074; }
-.tc-tooth.tc-on { background: #0d7d72; border-color: #0d7d72; color: #fff; }
+.tc-tooth:hover:not(:disabled) { border-color: var(--tc-accent); color: var(--tc-accent); }
+.tc-tooth.tc-on { background: var(--tc-accent-strong); border-color: var(--tc-accent-strong); color: #fff; }
 .tc-tooth.tc-gap { margin-left: 14px; }
-.tc-tooth:disabled { cursor: not-allowed; }
+.tc-tooth:disabled { cursor: not-allowed; opacity: .8; }
 
-.tc-facets { margin-top: 12px; border: 1px solid #dfe5e3; border-radius: 8px;
-  background: #f2f4f4; padding: 10px 12px; }
-.tc-facets-h { font-family: ui-monospace, monospace; font-size: 11px; color: #7a8886; letter-spacing: .04em; }
-.tc-facets-t { font-family: ui-monospace, monospace; font-size: 14px; margin: 3px 0; }
-.tc-facets-d { font-size: 12px; color: #55635f; }
+.tc-facets { margin-top: 12px; border: 1px solid var(--border-color, #ccc); border-radius: 8px;
+  background: var(--darkened-bg, #f2f2f2); padding: 10px 12px; }
+.tc-facets-h { font-family: ui-monospace, monospace; font-size: 11px;
+  color: var(--body-quiet-color, #888); letter-spacing: .04em; }
+.tc-facets-t { font-family: ui-monospace, monospace; font-size: 14px; margin: 3px 0;
+  color: var(--body-fg, #333); }
+.tc-facets-d { font-size: 12px; color: var(--body-quiet-color, #888); }

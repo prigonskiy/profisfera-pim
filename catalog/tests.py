@@ -1266,3 +1266,61 @@ class CaseModelTests(TestCase):
         buf = BytesIO()
         Image.new("RGB", (60, 40), (200, 100, 50)).save(buf, format="JPEG")
         return SimpleUploadedFile("c.jpg", buf.getvalue(), "image/jpeg")
+
+
+class CaseAPITests(TestCase):
+    """Стадия D: публичная выдача кейсов и блок кейсов в товаре."""
+
+    def setUp(self):
+        from catalog.models import Audience, Direction
+        from catalog.cases import Case, CaseProduct
+        self.api = APIClient()
+        self.a_stom, _ = Audience.objects.get_or_create(slug="stomatolog", defaults={"name": "Стоматолог"})
+        self.d_ortho, _ = Direction.objects.get_or_create(
+            slug="ortodontiya", defaults={"name": "Ортодонтия", "audience": self.a_stom})
+        self.cat = Category.objects.create(name="Кат")
+        self.prod = Product.objects.create(name="Брекет-система", category=self.cat)
+        # опубликованный кейс с товаром
+        self.pub = Case.objects.create(title="Экструзия 4.6", body_html="<p>x</p>",
+                                       tooth_scope="teeth", teeth=["46"])
+        self.pub.directions.add(self.d_ortho)
+        CaseProduct.objects.create(case=self.pub, product=self.prod, note="использован")
+        self.pub.status = Case.Status.PUBLISHED
+        self.pub.save()
+        self.pub.audiences.add(self.a_stom)  # аудитории — последними (как в админке: объект → M2M)
+        # черновик — не должен светиться
+        self.draft = Case.objects.create(title="Черновой кейс", body_html="<p>y</p>")
+
+    def test_list_only_published(self):
+        r = self.api.get("/api/cases/")
+        slugs = [c["slug"] for c in r.data["results"]]
+        self.assertIn(self.pub.slug, slugs)
+        self.assertNotIn(self.draft.slug, slugs)
+
+    def test_detail_shape(self):
+        r = self.api.get(f"/api/cases/{self.pub.slug}/")
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(r.data["teeth"], ["46"])
+        self.assertEqual(r.data["case_profile"], "clinical")
+        self.assertIn("body_html", r.data)
+        # товар кейса виден в блоке products
+        prod_slugs = [p["slug"] for p in r.data["products"]]
+        self.assertIn(self.prod.slug, prod_slugs)
+        self.assertEqual(r.data["products"][0]["note"], "использован")
+
+    def test_draft_detail_404_public(self):
+        r = self.api.get(f"/api/cases/{self.draft.slug}/")
+        self.assertEqual(r.status_code, 404)
+
+    def test_filter_by_profile(self):
+        r = self.api.get("/api/cases/?profile=clinical,joint")
+        self.assertIn(self.pub.slug, [c["slug"] for c in r.data["results"]])
+        r2 = self.api.get("/api/cases/?profile=lab")
+        self.assertNotIn(self.pub.slug, [c["slug"] for c in r2.data["results"]])
+
+    def test_product_detail_lists_cases(self):
+        r = self.api.get(f"/api/products/{self.prod.slug}/")
+        self.assertEqual(r.status_code, 200)
+        case_slugs = [c["slug"] for c in r.data["cases"]]
+        self.assertIn(self.pub.slug, case_slugs)
+        self.assertNotIn(self.draft.slug, case_slugs)  # черновик не показывается

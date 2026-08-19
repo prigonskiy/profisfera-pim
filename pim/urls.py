@@ -11,6 +11,7 @@ from catalog.tinymce_upload import tinymce_upload
 from catalog.api import (
     AudienceViewSet,
     BrandViewSet,
+    CaseViewSet,
     CategoryViewSet,
     CharacteristicViewSet,
     CompatibilitySystemViewSet,
@@ -29,6 +30,7 @@ router.register("documents", DocumentViewSet, basename="document")
 router.register("audiences", AudienceViewSet, basename="audience")
 router.register("directions", DirectionViewSet, basename="direction")
 router.register("systems", CompatibilitySystemViewSet, basename="system")
+router.register("cases", CaseViewSet, basename="case")
 
 urlpatterns = [
     path("admin/", admin.site.urls),
