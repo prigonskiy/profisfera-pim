@@ -12,7 +12,7 @@ from .cases import Case, CaseMedia, CaseProduct
 
 CASE_TOOLBAR = ("undo redo | blocks | bold italic underline | "
                 "alignleft aligncenter alignright | bullist numlist | "
-                "link image table | casemedia | code fullscreen | removeformat")
+                "link image table | casemedia caseproduct | code fullscreen | removeformat")
 
 
 class CaseAdminForm(forms.ModelForm):
@@ -24,7 +24,10 @@ class CaseAdminForm(forms.ModelForm):
         super().__init__(*args, **kwargs)
         # кнопка «Галерея» — только на форме кейса (в товарах TinyMCE без неё)
         self.fields["body_html"].widget = TinyMCE(mce_attrs={
-            "external_plugins": {"casemedia": static("catalog/js/tinymce_casemedia.js")},
+            "external_plugins": {
+                "casemedia": static("catalog/js/tinymce_casemedia.js"),
+                "caseproduct": static("catalog/js/tinymce_caseproduct.js"),
+            },
             "toolbar": CASE_TOOLBAR,
         })
 
@@ -80,6 +83,8 @@ class CaseAdmin(admin.ModelAdmin):
         custom = [
             path("<int:pk>/media-json/", self.admin_site.admin_view(self.media_json),
                  name="%s_%s_media_json" % info),
+            path("<int:pk>/products-json/", self.admin_site.admin_view(self.products_json),
+                 name="%s_%s_products_json" % info),
         ]
         return custom + urls
 
@@ -94,6 +99,25 @@ class CaseAdmin(admin.ModelAdmin):
                     "id": m.pk,
                     "thumb": request.build_absolute_uri(src.url) if src else "",
                     "caption": m.caption or "",
+                })
+        return JsonResponse({"results": results})
+
+    def products_json(self, request, pk):
+        """Привязанные к кейсу товары — для вставки карточки товара в тело."""
+        case = self.get_object(request, pk)
+        results = []
+        if case is not None:
+            for cp in case.products.select_related("product").all():
+                p = cp.product
+                if not p:
+                    continue
+                first = p.images.all().first()
+                thumb = (first.thumb or first.image) if first else None
+                results.append({
+                    "slug": p.slug,
+                    "name": p.name,
+                    "thumb": request.build_absolute_uri(thumb.url) if thumb else "",
+                    "active": p.is_active,
                 })
         return JsonResponse({"results": results})
 

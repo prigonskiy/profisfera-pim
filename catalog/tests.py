@@ -1393,3 +1393,63 @@ class CaseBodyMediaTests(TestCase):
         self.assertEqual(r.status_code, 200)
         ids = [x["id"] for x in r.json()["results"]]
         self.assertIn(m.pk, ids)
+
+
+class CaseBodyProductTests(TestCase):
+    """Вставка товара в тело кейса: нормализация/вырезание маркера data-product."""
+
+    def setUp(self):
+        self.api = APIClient()
+        self.cat = Category.objects.create(name="Кат")
+        from catalog.cases import Case, CaseProduct
+        from catalog.models import Audience, Direction
+        a, _ = Audience.objects.get_or_create(slug="stomatolog", defaults={"name": "Ст"})
+        d, _ = Direction.objects.get_or_create(slug="terapiya", defaults={"name": "Тер", "audience": a})
+        self.p_linked = Product.objects.create(name="Estelite Asteria", category=self.cat)
+        self.p_unlinked = Product.objects.create(name="Чужой товар", category=self.cat)
+        self.p_inactive = Product.objects.create(name="Снятый", category=self.cat, is_active=False)
+        self.case = Case.objects.create(title="Кейс с товарами в тексте")
+        self.case.directions.add(d)
+        CaseProduct.objects.create(case=self.case, product=self.p_linked)
+        CaseProduct.objects.create(case=self.case, product=self.p_inactive)
+        self.case.body_html = (
+            f'<p>Использован '
+            f'<div class="cp-chip" data-product="{self.p_linked.slug}" contenteditable="false">🛒 Estelite</div>'
+            f'.</p>'
+            f'<div data-product="{self.p_unlinked.slug}">чужой</div>'
+            f'<div data-product="{self.p_inactive.slug}">снятый</div>'
+            f'<figure data-media="999"><img src="/x.webp"></figure>'
+            f'<p>Конец.</p>')
+        self.case.status = Case.Status.PUBLISHED
+        self.case.save()
+
+    def test_linked_product_marker_normalized(self):
+        r = self.api.get(f"/api/cases/{self.case.slug}/")
+        body = r.data["body_html"]
+        self.assertIn(f'<div class="case-product" data-product="{self.p_linked.slug}"></div>', body)
+        self.assertNotIn("cp-chip", body)          # редакторский чип нормализован
+        self.assertNotIn("🛒", body)
+
+    def test_unlinked_and_inactive_markers_removed(self):
+        r = self.api.get(f"/api/cases/{self.case.slug}/")
+        body = r.data["body_html"]
+        self.assertNotIn(self.p_unlinked.slug, body)   # не привязан → вырезан
+        self.assertNotIn(self.p_inactive.slug, body)   # неактивен → вырезан
+
+    def test_surrounding_content_intact(self):
+        r = self.api.get(f"/api/cases/{self.case.slug}/")
+        body = r.data["body_html"]
+        self.assertIn("<p>Конец.</p>", body)
+        self.assertNotIn('data-media="999"', body)  # несуществующее фото тоже вырезано
+
+    def test_products_json_endpoint(self):
+        from django.contrib.auth.models import User
+        from django.test import Client as DjangoClient
+        staff = User.objects.create_superuser("padm", "p@e.com", "pw12345!")
+        cl = DjangoClient()
+        cl.force_login(staff)
+        r = cl.get(f"/admin/catalog/case/{self.case.pk}/products-json/")
+        self.assertEqual(r.status_code, 200)
+        slugs = [x["slug"] for x in r.json()["results"]]
+        self.assertIn(self.p_linked.slug, slugs)
+        self.assertNotIn(self.p_unlinked.slug, slugs)  # только привязанные

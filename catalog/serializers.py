@@ -454,16 +454,22 @@ def _abs_url(request, filefield):
 
 _FIGURE_RE = re.compile(r'<figure\b[^>]*\bdata-media="(\d+)"[^>]*>.*?</figure>',
                         re.DOTALL | re.IGNORECASE)
+_PRODUCT_RE = re.compile(r'<div\b[^>]*\bdata-product="([^"]+)"[^>]*>.*?</div>',
+                         re.DOTALL | re.IGNORECASE)
 
 
-def render_case_body(body_html, media_by_id, request):
-    """Подставить в тело кейса актуальные URL деривативов вместо того, что вставил
-    редактор: каждый <figure data-media="ID"> перерисовывается по свежему preview.
-    Если картинку из галереи удалили — блок вырезается целиком."""
+def render_case_body(body_html, media_by_id, product_slugs, request):
+    """Привести тело кейса к отдаваемому виду:
+    - <figure data-media="ID"> перерисовывается по свежему preview; удалённая
+      картинка вырезается целиком;
+    - <div data-product="SLUG"> нормализуется в чистый маркер, который витрина
+      превращает в карточку товара (данные берёт из case.products по slug);
+      маркер на отвязанный/неактивный товар убирается.
+    """
     if not body_html:
         return body_html or ""
 
-    def repl(match):
+    def repl_figure(match):
         mid = int(match.group(1))
         media = media_by_id.get(mid)
         if media is None:
@@ -475,7 +481,15 @@ def render_case_body(body_html, media_by_id, request):
         return (f'<figure data-media="{mid}">'
                 f'<img src="{src}" alt="{alt}" loading="lazy">{figcaption}</figure>')
 
-    return _FIGURE_RE.sub(repl, body_html)
+    def repl_product(match):
+        slug = match.group(1)
+        if slug not in product_slugs:
+            return ""  # товар отвязан от кейса / неактивен — убираем маркер
+        return f'<div class="case-product" data-product="{html_escape(slug)}"></div>'
+
+    result = _FIGURE_RE.sub(repl_figure, body_html)
+    result = _PRODUCT_RE.sub(repl_product, result)
+    return result
 
 
 class CaseMediaSerializer(serializers.ModelSerializer):
@@ -563,7 +577,10 @@ class CaseDetailSerializer(CaseTileSerializer):
     @extend_schema_field(OpenApiTypes.STR)
     def get_body_html(self, obj):
         media_by_id = {m.pk: m for m in obj.media.all()}
-        return render_case_body(obj.body_html, media_by_id, self.context.get("request"))
+        product_slugs = {cp.product.slug for cp in obj.products.all()
+                         if cp.product and cp.product.is_active}
+        return render_case_body(obj.body_html, media_by_id, product_slugs,
+                                self.context.get("request"))
 
     @extend_schema_field(CaseMediaSerializer(many=True))
     def get_media(self, obj):
